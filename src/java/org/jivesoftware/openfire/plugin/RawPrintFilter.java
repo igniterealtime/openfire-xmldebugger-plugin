@@ -1,4 +1,8 @@
-/*
+/**
+ * $RCSfile: $
+ * $Revision: $
+ * $Date: $
+ *
  * Copyright (C) 2005-2008 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,22 +20,15 @@
 
 package org.jivesoftware.openfire.plugin;
 
-import static org.jivesoftware.openfire.spi.ConnectionManagerImpl.COMPRESSION_FILTER_NAME;
-import static org.jivesoftware.openfire.spi.ConnectionManagerImpl.TLS_FILTER_NAME;
-
+import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.mina.core.buffer.IoBuffer;
-import org.apache.mina.core.filterchain.DefaultIoFilterChainBuilder;
 import org.apache.mina.core.filterchain.IoFilterAdapter;
 import org.apache.mina.core.session.IoSession;
 import org.apache.mina.core.write.WriteRequest;
-import org.apache.mina.transport.socket.SocketAcceptor;
 import org.jivesoftware.util.JiveGlobals;
 
 /**
@@ -42,138 +39,79 @@ import org.jivesoftware.util.JiveGlobals;
  * @author Gaston Dombiak
  */
 public class RawPrintFilter extends IoFilterAdapter {
+    private boolean enabled = true;
+    private String prefix;
+    private Collection<IoSession> sessions = new ConcurrentLinkedQueue<IoSession>();
 
-    private static final Logger LOGGER = LogManager.getLogger();
-    private static final String FILTER_NAME = "rawDebugger";
-
-    private DebuggerPlugin plugin;
-    private final String prefix;
-    private final String propertyName;
-    private final Collection<IoSession> sessions = new ConcurrentLinkedQueue<>();
-    private boolean enabled;
-
-    RawPrintFilter(final DebuggerPlugin plugin, final String prefix) {
-        this.plugin = plugin;
+    public RawPrintFilter(String prefix) {
         this.prefix = prefix;
-        this.propertyName = DebuggerPlugin.PROPERTY_PREFIX + prefix.toLowerCase();
-        this.enabled = JiveGlobals.getBooleanProperty(propertyName, true);
+        this.enabled = JiveGlobals.getBooleanProperty("plugin.xmldebugger." + prefix.toLowerCase(), true);
     }
-
-    String getPropertyName() {
-        return propertyName;
-    }
-
-    void addFilterToChain(final SocketAcceptor acceptor) {
-        if (acceptor == null) {
-            LOGGER.debug("Not adding filter '{}' for {} to acceptor that is null.", FILTER_NAME, prefix);
-            return;
-        }
-
-        final DefaultIoFilterChainBuilder chain = acceptor.getFilterChain();
-        if (chain.contains(COMPRESSION_FILTER_NAME)) {
-            LOGGER.debug("Adding filter '{}' for {} as the first filter after the compression filter in acceptor {}", FILTER_NAME, prefix, acceptor);
-            chain.addAfter(COMPRESSION_FILTER_NAME, FILTER_NAME, this);
-        } else if (chain.contains(TLS_FILTER_NAME)) {
-            LOGGER.debug("Adding filter '{}' for {} as the first filter after the TLS filter in acceptor {}", FILTER_NAME, prefix, acceptor);
-            chain.addAfter(TLS_FILTER_NAME, FILTER_NAME, this);
-        } else {
-            LOGGER.debug("Adding filter '{}' for {} as the last filter in acceptor {}", FILTER_NAME, prefix, acceptor);
-            chain.addLast(FILTER_NAME, this);
-        }
-    }
-
-    void removeFilterFromChain(final SocketAcceptor acceptor) {
-        if (acceptor == null) {
-            LOGGER.debug("Not removing filter '{}' for {} from acceptor that is null.", FILTER_NAME, prefix);
-            return;
-        }
-
-        if (acceptor.getFilterChain().contains(FILTER_NAME)) {
-            LOGGER.debug("Removing filter '{}' for {} from acceptor {}", FILTER_NAME, prefix, acceptor);
-            acceptor.getFilterChain().remove(FILTER_NAME);
-        } else {
-            LOGGER.debug("Unable to remove non-existing filter '{}' for {} from acceptor {}", FILTER_NAME, prefix, acceptor);
-        }
-    }
-
 
     @Override
-    public void messageReceived(final NextFilter nextFilter, final IoSession session, final Object message) throws Exception {
+	public void messageReceived(NextFilter nextFilter, IoSession session, Object message) throws Exception {
         // Decode the bytebuffer and print it to the stdout
-        if (enabled && message instanceof String && (plugin.isLoggingWhitespace() || !((String) message).isEmpty())) {
-            plugin.log(messagePrefix(session, "RECV") + ": " + message);
+    	if (enabled && message instanceof ByteBuffer) {
+            ByteBuffer byteBuffer = (ByteBuffer) message;
+            // Keep current position in the buffer
+            int currentPos = byteBuffer.position();
+            // Decode buffer
+            Charset encoder = Charset.forName("UTF-8");
+            CharBuffer charBuffer = encoder.decode(byteBuffer.asReadOnlyBuffer());
+            // Print buffer content
+            System.out.println(prefix + " - RECV (" + session.hashCode() + "): " + charBuffer);
+            // Reset to old position in the buffer
+            byteBuffer.position(currentPos);
         }
         // Pass the message to the next filter
         super.messageReceived(nextFilter, session, message);
     }
 
-    private void logBuffer(final IoSession session, final IoBuffer ioBuffer, final String receiveOrSend) {
-        // Keep current position in the buffer
-        int currentPos = ioBuffer.position();
-        // Decode buffer
-        CharBuffer charBuffer = Charset.forName("UTF-8").decode(ioBuffer.buf());
-        // Log buffer content
-        final String message = charBuffer.toString();
-        if (plugin.isLoggingWhitespace() || !message.isEmpty()) {
-            plugin.log(messagePrefix(session, receiveOrSend) + ": " + charBuffer);
-        }
-        // Reset to old position in the buffer
-        ioBuffer.position(currentPos);
-    }
-
-    private String messagePrefix(final IoSession session, final String messageType) {
-        return String.format("%s %-16s - %s - (%11s)", prefix, session.getRemoteAddress() == null ? "" : session.getRemoteAddress(), messageType, session.hashCode());
-    }
-
     @Override
-    public void messageSent(final NextFilter nextFilter, final IoSession session, final WriteRequest writeRequest) throws Exception {
-        if (enabled && writeRequest.getMessage() instanceof IoBuffer) {
-            logBuffer(session, (IoBuffer) writeRequest.getMessage(), "SENT");
+	public void messageSent(NextFilter nextFilter, IoSession session, WriteRequest message) throws Exception {
+        if (enabled) {
+            System.out.println(prefix + " - SENT (" + session.hashCode() + "): " +
+                    Charset.forName("UTF-8").decode(((ByteBuffer) message).asReadOnlyBuffer()));
         }
+
         // Pass the message to the next filter
-        super.messageSent(nextFilter, session, writeRequest);
+        super.messageSent(nextFilter, session, message);
     }
 
     public boolean isEnabled() {
         return enabled;
     }
 
-    public void setEnabled(final boolean enabled) {
-        JiveGlobals.setProperty(propertyName, Boolean.toString(enabled));
-    }
-
-    void wasEnabled(final boolean enabled) {
+    public void setEnabled(boolean enabled) {
         this.enabled = enabled;
-        LOGGER.debug("{} logger {}", prefix, enabled ? "enabled" : "disabled");
+        JiveGlobals.setProperty("plugin.xmldebugger." + prefix.toLowerCase(), Boolean.toString(enabled)); 
     }
 
-    void shutdown() {
+    public void shutdown() {
         // Remove this filter from sessions that are using it
         for (IoSession session : sessions) {
-            session.getFilterChain().remove(FILTER_NAME);
+            session.getFilterChain().remove("rawDebugger");
         }
-        sessions.clear();
+        sessions = null;
     }
 
     @Override
-    public void sessionCreated(final NextFilter nextFilter, final IoSession session) throws Exception {
+	public void sessionCreated(NextFilter nextFilter, IoSession session) throws Exception {
         // Keep track of sessions using this filter
         sessions.add(session);
-        if (enabled) {
-            // Log that a session was opened
-            plugin.log(messagePrefix(session, "OPEN"));
-        }
+
         super.sessionCreated(nextFilter, session);
     }
 
     @Override
-    public void sessionClosed(final NextFilter nextFilter, final IoSession session) throws Exception {
+	public void sessionClosed(NextFilter nextFilter, IoSession session) throws Exception {
         // Update list of sessions using this filter
         sessions.remove(session);
         if (enabled) {
-            // Log that a session was closed
-            plugin.log(messagePrefix(session, "CLSD"));
+            // Print that a session was closed
+            System.out.println("CLOSED (" + session.hashCode() + ") ");
         }
+
         super.sessionClosed(nextFilter, session);
     }
 }

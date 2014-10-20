@@ -1,4 +1,8 @@
-/*
+/**
+ * $RCSfile: $
+ * $Revision: $
+ * $Date: $
+ *
  * Copyright (C) 2005-2008 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,17 +21,13 @@
 package org.jivesoftware.openfire.plugin;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.apache.mina.transport.socket.SocketAcceptor;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
-import org.jivesoftware.openfire.container.PluginManagerListener;
+import org.jivesoftware.openfire.interceptor.InterceptorManager;
 import org.jivesoftware.openfire.spi.ConnectionManagerImpl;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.PropertyEventDispatcher;
@@ -42,65 +42,46 @@ import org.jivesoftware.util.PropertyEventListener;
  * @author Gaston Dombiak
  */
 public class DebuggerPlugin implements Plugin, PropertyEventListener {
+    private RawPrintFilter defaultPortFilter;
+    private RawPrintFilter oldPortFilter;
+    private RawPrintFilter componentPortFilter;
+    private RawPrintFilter multiplexerPortFilter;
 
-    private static final Logger LOGGER = LogManager.getLogger();
+    private InterpretedXMLPrinter interpretedPrinter;
 
-    static final String PROPERTY_PREFIX = "plugin.xmldebugger.";
-    private static final String PROPERTY_LOG_TO_STDOUT_ENABLED = PROPERTY_PREFIX + "logToStdOut";
-    private static final String PROPERTY_LOG_TO_FILE_ENABLED = PROPERTY_PREFIX + "logToFile";
-    private static final String PROPERTY_LOG_WHITESPACE = PROPERTY_PREFIX + "logWhitespace";
-
-
-    private final RawPrintFilter defaultPortFilter;
-    private final RawPrintFilter oldPortFilter;
-    private final RawPrintFilter componentPortFilter;
-    private final RawPrintFilter multiplexerPortFilter;
-    private final Set<RawPrintFilter> rawPrintFilters;
-    private final InterpretedXMLPrinter interpretedPrinter;
-    private boolean logWhitespace;
-    private boolean loggingToStdOut;
-    private boolean loggingToFile;
-
-    public DebuggerPlugin() {
-        loggingToStdOut = JiveGlobals.getBooleanProperty(PROPERTY_LOG_TO_STDOUT_ENABLED, true);
-        loggingToFile = JiveGlobals.getBooleanProperty(PROPERTY_LOG_TO_FILE_ENABLED, false);
-        defaultPortFilter = new RawPrintFilter(this, "C2S");
-        oldPortFilter = new RawPrintFilter(this, "SSL");
-        componentPortFilter = new RawPrintFilter(this, "ExComp");
-        multiplexerPortFilter = new RawPrintFilter(this, "CM");
-        rawPrintFilters = new HashSet<>(Arrays.asList(defaultPortFilter, oldPortFilter, componentPortFilter, multiplexerPortFilter));
-        interpretedPrinter = new InterpretedXMLPrinter(this);
-    }
-
-    public void initializePlugin(final PluginManager pluginManager, final File pluginDirectory) {
-        if (pluginManager.isExecuted()) {
-            addInterceptors();
-        } else {
-            pluginManager.addPluginManagerListener(new PluginManagerListener() {
-                public void pluginsMonitored() {
-                    // Stop listening for plugin events
-                    pluginManager.removePluginManagerListener(this);
-                    // Start listeners
-                    addInterceptors();
-                }
-            });
-        }
-    }
-
-    private void addInterceptors() {
+    public void initializePlugin(PluginManager manager, File pluginDirectory) {
         // Add filter to filter chain builder
-        final ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
+        ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
+        defaultPortFilter = new RawPrintFilter("C2S");
+        SocketAcceptor socketAcceptor = connManager.getSocketAcceptor();
+        if (socketAcceptor != null) {
+            socketAcceptor.getFilterChain().addBefore("xmpp", "rawDebugger", defaultPortFilter);
+        }
+        oldPortFilter = new RawPrintFilter("SSL");
+        SocketAcceptor sslAcceptor = connManager.getSSLSocketAcceptor();
+        if (sslAcceptor != null) {
+            sslAcceptor.getFilterChain().addBefore("xmpp", "rawDebugger", oldPortFilter);
+        }
 
-        defaultPortFilter.addFilterToChain(connManager.getSocketAcceptor());
-        oldPortFilter.addFilterToChain(connManager.getSSLSocketAcceptor());
-        componentPortFilter.addFilterToChain(connManager.getComponentAcceptor());
-        multiplexerPortFilter.addFilterToChain(connManager.getMultiplexerSocketAcceptor());
+        componentPortFilter = new RawPrintFilter("ExComp");
+        SocketAcceptor componentAcceptor = connManager.getComponentAcceptor();
+        if (componentAcceptor != null) {
+            componentAcceptor.getFilterChain().addBefore("xmpp", "rawDebugger", componentPortFilter);
+        }
 
-        interpretedPrinter.wasEnabled(interpretedPrinter.isEnabled());
+        multiplexerPortFilter = new RawPrintFilter("CM");
+        SocketAcceptor multiplexerAcceptor = connManager.getMultiplexerSocketAcceptor();
+        if (multiplexerAcceptor != null) {
+            multiplexerAcceptor.getFilterChain().addBefore("xmpp", "rawDebugger", multiplexerPortFilter);
+        }
 
+        interpretedPrinter = new InterpretedXMLPrinter();
+        if (JiveGlobals.getBooleanProperty("plugin.debugger.interpretedAllowed")) {
+            // Add the packet interceptor that prints interpreted XML
+            InterceptorManager.getInstance().addInterceptor(interpretedPrinter);
+        }
         // Listen to property events
         PropertyEventDispatcher.addListener(this);
-        LOGGER.debug("Plugin initialisation complete");
     }
 
     public void destroyPlugin() {
@@ -108,22 +89,44 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         PropertyEventDispatcher.removeListener(this);
         // Remove filter from filter chain builder
         ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
-
-        defaultPortFilter.removeFilterFromChain(connManager.getSocketAcceptor());
-        oldPortFilter.removeFilterFromChain(connManager.getSSLSocketAcceptor());
-        componentPortFilter.removeFilterFromChain(connManager.getComponentAcceptor());
-        multiplexerPortFilter.removeFilterFromChain(connManager.getMultiplexerSocketAcceptor());
-
+        if (connManager.getSocketAcceptor() != null &&
+                connManager.getSocketAcceptor().getFilterChain().contains("rawDebugger")) {
+            connManager.getSocketAcceptor().getFilterChain().remove("rawDebugger");
+        }
+        if (connManager.getSSLSocketAcceptor() != null &&
+                connManager.getSSLSocketAcceptor().getFilterChain().contains("rawDebugger")) {
+            connManager.getSSLSocketAcceptor().getFilterChain().remove("rawDebugger");
+        }
+        if (connManager.getComponentAcceptor() != null &&
+                connManager.getComponentAcceptor().getFilterChain().contains("rawDebugger")) {
+            connManager.getComponentAcceptor().getFilterChain().remove("rawDebugger");
+        }
+        if (connManager.getMultiplexerSocketAcceptor() != null &&
+                connManager.getMultiplexerSocketAcceptor().getFilterChain().contains("rawDebugger")) {
+            connManager.getMultiplexerSocketAcceptor().getFilterChain().remove("rawDebugger");
+        }
         // Remove the filters from existing sessions
-        defaultPortFilter.shutdown();
-        oldPortFilter.shutdown();
-        componentPortFilter.shutdown();
-        multiplexerPortFilter.shutdown();
+        if (defaultPortFilter != null) {
+            defaultPortFilter.shutdown();
+        }
+        if (oldPortFilter != null) {
+            oldPortFilter.shutdown();
+        }
+        if (componentPortFilter != null) {
+            componentPortFilter.shutdown();
+        }
+        if (multiplexerPortFilter != null) {
+            multiplexerPortFilter.shutdown();
+        }
 
         // Remove the packet interceptor that prints interpreted XML
-        interpretedPrinter.wasEnabled(false);
+        InterceptorManager.getInstance().removeInterceptor(interpretedPrinter);
 
-        LOGGER.debug("Plugin destruction complete");
+        defaultPortFilter = null;
+        oldPortFilter = null;
+        componentPortFilter = null;
+        interpretedPrinter = null;
+        multiplexerPortFilter = null;
     }
 
     public RawPrintFilter getDefaultPortFilter() {
@@ -142,46 +145,20 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         return multiplexerPortFilter;
     }
 
-    public InterpretedXMLPrinter getInterpretedPrinter() {
-        return interpretedPrinter;
-    }
-
     public void propertySet(String property, Map<String, Object> params) {
-        final boolean enabled = Boolean.parseBoolean(String.valueOf(params.get("value")));
-        enableOrDisableLogger(property, enabled);
+        if (property.equals("plugin.debugger.interpretedAllowed")) {
+            if (Boolean.parseBoolean((String) params.get("value"))) {
+                InterceptorManager.getInstance().addInterceptor(interpretedPrinter);
+            }
+            else {
+                InterceptorManager.getInstance().removeInterceptor(interpretedPrinter);
+            }
+        }
     }
 
     public void propertyDeleted(String property, Map<String, Object> params) {
-        enableOrDisableLogger(property, false);
-    }
-
-    private void enableOrDisableLogger(final String property, final boolean enabled) {
-        if (property.startsWith(PROPERTY_PREFIX)) {
-            switch (property) {
-                case InterpretedXMLPrinter.PROPERTY_ENABLED:
-                    interpretedPrinter.wasEnabled(enabled);
-                    break;
-                case PROPERTY_LOG_TO_STDOUT_ENABLED:
-                    loggingToStdOut = enabled;
-                    LOGGER.debug("STDOUT logger {}", enabled ? "enabled" : "disabled");
-                    break;
-                case PROPERTY_LOG_TO_FILE_ENABLED:
-                    loggingToFile = enabled;
-                    LOGGER.debug("file logger {}", enabled ? "enabled" : "disabled");
-                    break;
-                case PROPERTY_LOG_WHITESPACE:
-                    logWhitespace = enabled;
-                    LOGGER.debug("whitespace logging {}", enabled ? "enabled" : "disabled");
-                    break;
-                default:
-                    // Is it one of the RawPrintFilters?
-                    for (final RawPrintFilter filter : rawPrintFilters) {
-                        if (filter.getPropertyName().equals(property)) {
-                            filter.wasEnabled(enabled);
-                            break;
-                        }
-                    }
-            }
+        if (property.equals("plugin.debugger.interpretedAllowed")) {
+            InterceptorManager.getInstance().removeInterceptor(interpretedPrinter);
         }
     }
 
@@ -191,38 +168,5 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
 
     public void xmlPropertyDeleted(String property, Map<String, Object> params) {
         // Do nothing
-    }
-
-    public boolean isLoggingToStdOut() {
-        return loggingToStdOut;
-    }
-
-    public void setLoggingToStdOut(final boolean enabled) {
-        JiveGlobals.setProperty(PROPERTY_LOG_TO_STDOUT_ENABLED, String.valueOf(enabled));
-    }
-
-    public boolean isLoggingToFile() {
-        return loggingToFile;
-    }
-
-    public void setLoggingToFile(final boolean enabled) {
-        JiveGlobals.setProperty(PROPERTY_LOG_TO_FILE_ENABLED, String.valueOf(enabled));
-    }
-
-    void log(final String messageToLog) {
-        if (loggingToStdOut) {
-            System.out.println(messageToLog);
-        }
-        if (loggingToFile) {
-            LOGGER.debug(messageToLog);
-        }
-    }
-
-    public void setLogWhitespace(final boolean enabled) {
-        JiveGlobals.setProperty(PROPERTY_LOG_WHITESPACE, String.valueOf(enabled));
-    }
-
-    public boolean isLoggingWhitespace() {
-        return logWhitespace;
     }
 }
