@@ -11,7 +11,7 @@
     <name>XML Debugger Plugin</name>
 
     <build>
-        <sourceDirectory>../../src/plugins/xmldebugger/src/java</sourceDirectory>
+        <sourceDirectory>src/java</sourceDirectory>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
