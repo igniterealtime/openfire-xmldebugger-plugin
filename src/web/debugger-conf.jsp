@@ -97,46 +97,6 @@
                 </label>
             </td>
         </tr>
-        <tr valign="middle">
-            <td width="1%" nowrap>
-                <input id="rb08" type="checkbox" name="logWhitespace" <%= (logWhitespace ? "checked" : "") %>/>
-            </td>
-            <td width="99%">
-                <label for="rb08">
-                    Log whitespace only traffic
-                </label>
-            </td>
-        </tr>
-        <tr valign="middle">
-            <td width="1%" nowrap>
-                <input id="rb05" type="checkbox" name="interpreted" <%= (interpreted ? "checked" : "") %>/>
-            </td>
-            <td width="99%">
-                <label for="rb05">
-                    Interpreted XML
-                </label>
-            </td>
-        </tr>
-        <tr valign="middle">
-            <td width="1%" nowrap>
-                <input id="rb06" type="checkbox" name="loggingToStdOut" <%= (loggingToStdOut ? "checked" : "") %>/>
-            </td>
-            <td width="99%">
-                <label for="rb06">
-                    Log to STDOUT
-                </label>
-            </td>
-        </tr>
-        <tr valign="middle">
-            <td width="1%" nowrap>
-                <input id="rb07" type="checkbox" name="loggingToFile" <%= (loggingToFile ? "checked" : "") %>/>
-            </td>
-            <td width="99%">
-                <label for="rb07">
-                    Log to file
-                </label>
-            </td>
-        </tr>
         </tbody>
         </table>
     </div>
