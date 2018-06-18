@@ -21,9 +21,6 @@
     boolean extcomp = ParamUtils.getBooleanParameter(request,"extcomp");
     boolean cm = ParamUtils.getBooleanParameter(request,"cm");
     boolean interpreted = ParamUtils.getBooleanParameter(request, "interpreted");
-    boolean logWhitespace = ParamUtils.getBooleanParameter(request, "logWhitespace");
-    boolean loggingToStdOut = ParamUtils.getBooleanParameter(request, "loggingToStdOut");
-    boolean loggingToFile = ParamUtils.getBooleanParameter(request, "loggingToFile");
 
     DebuggerPlugin plugin = (DebuggerPlugin) XMPPServer.getInstance().getPluginManager().getPlugin("xmldebugger");
     if (update) {
@@ -33,19 +30,14 @@
         plugin.getComponentPortFilter().setEnabled(extcomp);
         plugin.getMultiplexerPortFilter().setEnabled(cm);
         plugin.getInterpretedPrinter().setEnabled(interpreted);
-        plugin.setLogWhitespace(logWhitespace);
-        plugin.setLoggingToStdOut(loggingToStdOut);
-        plugin.setLoggingToFile(loggingToFile);
-    } else {
+    }
+    else {
         // Set current values
         c2s = plugin.getDefaultPortFilter().isEnabled();
         ssl = plugin.getOldPortFilter().isEnabled();
         extcomp = plugin.getComponentPortFilter().isEnabled();
         cm = plugin.getMultiplexerPortFilter().isEnabled();
         interpreted = plugin.getInterpretedPrinter().isEnabled();
-        logWhitespace = plugin.isLoggingWhitespace();
-        loggingToStdOut = plugin.isLoggingToStdOut();
-        loggingToFile = plugin.isLoggingToFile();
     }
 %>
 
@@ -94,6 +86,16 @@
             <td width="99%">
                 <label for="rb04">
                     Connection Manager
+                </label>
+            </td>
+        </tr>
+        <tr valign="middle">
+            <td width="1%" nowrap>
+                <input id="rb05" type="checkbox" name="interpreted" <%= (interpreted ? "checked" : "") %>/>
+            </td>
+            <td width="99%">
+                <label for="rb05">
+                    Interpreted XML
                 </label>
             </td>
         </tr>
