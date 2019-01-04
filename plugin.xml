@@ -17,9 +17,9 @@
       <tab id="tab-server">
          <sidebar id="sidebar-server-settings">
             <item id="debugger-conf"
-                  name="Debugger Properties"
+                  name="XML Debugger Properties"
                   url="debugger-conf.jsp"
-                  description="Edit debugger plugin properties" />
+                  description="Edit XML debugger plugin properties" />
          </sidebar>
       </tab>
    </adminconsole>
