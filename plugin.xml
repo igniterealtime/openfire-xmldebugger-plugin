@@ -9,7 +9,7 @@
     <description>${project.description}</description>
     <author>Ignite Realtime</author>
     <version>${project.version}</version>
-    <date>07/11/2018</date>
+    <date>01/23/2019</date>
     <minServerVersion>4.3.0</minServerVersion>
     <minJavaVersion>1.8</minJavaVersion>
 
