@@ -3,7 +3,7 @@
     <Appenders>
         <RollingFile name="analytics" fileName="${sys:openfireHome}/logs/xmldebugger.log" filePattern="${sys:openfireHome}/logs/xmldebugger.%i.log.zip">
             <PatternLayout>
-                <pattern>%d %-5p %X [%c{1}] - %m%n</pattern>
+                <pattern>%d %-5p [%c{1}] - %m%n</pattern>
             </PatternLayout>
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 MB"/>

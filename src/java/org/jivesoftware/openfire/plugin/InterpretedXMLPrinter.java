@@ -40,7 +40,7 @@ public class InterpretedXMLPrinter implements PacketInterceptor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InterpretedXMLPrinter.class);
     static final String PROPERTY_ENABLED = DebuggerPlugin.PROPERTY_PREFIX + "interpretedAllowed";
-    private DebuggerPlugin plugin;
+    private final DebuggerPlugin plugin;
 
     InterpretedXMLPrinter(final DebuggerPlugin plugin) {
 
@@ -71,10 +71,10 @@ public class InterpretedXMLPrinter implements PacketInterceptor {
 
     void wasEnabled(final boolean enabled) {
         if (enabled) {
-            LOGGER.debug("Interpreted XML logger enabled");
+            LOGGER.info("Interpreted XML logger enabled");
             InterceptorManager.getInstance().addInterceptor(this);
         } else {
-            LOGGER.debug("Interpreted XML logger disabled");
+            LOGGER.info("Interpreted XML logger disabled");
             InterceptorManager.getInstance().removeInterceptor(this);
         }
     }
