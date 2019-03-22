@@ -27,6 +27,7 @@ import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.container.PluginManagerListener;
 import org.jivesoftware.openfire.spi.ConnectionManagerImpl;
+import org.jivesoftware.openfire.spi.ConnectionType;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.PropertyEventDispatcher;
 import org.jivesoftware.util.PropertyEventListener;
@@ -73,46 +74,42 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     }
 
     public void initializePlugin(final PluginManager pluginManager, final File pluginDirectory) {
-        if (pluginManager.isExecuted()) {
-            addInterceptors();
-        } else {
-            pluginManager.addPluginManagerListener(new PluginManagerListener() {
-                public void pluginsMonitored() {
-                    // Stop listening for plugin events
-                    pluginManager.removePluginManagerListener(this);
-                    // Start listeners
-                    addInterceptors();
-                }
-            });
-        }
+        pluginManager.addPluginManagerListener(new PluginManagerListener() {
+            public void pluginsMonitored() {
+                // Stop listening for plugin events
+                pluginManager.removePluginManagerListener(this);
+                // Start listeners
+                addInterceptors();
+            }
+        });
     }
 
     private void addInterceptors() {
         // Add filter to filter chain builder
         final ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
 
-        defaultPortFilter.addFilterToChain(connManager.getSocketAcceptor());
-        oldPortFilter.addFilterToChain(connManager.getSSLSocketAcceptor());
-        componentPortFilter.addFilterToChain(connManager.getComponentAcceptor());
-        multiplexerPortFilter.addFilterToChain(connManager.getMultiplexerSocketAcceptor());
+        defaultPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.SOCKET_C2S, false));
+        oldPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.SOCKET_C2S, true));
+        componentPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.COMPONENT, false));
+        multiplexerPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.CONNECTION_MANAGER, false));
 
         interpretedPrinter.wasEnabled(interpretedPrinter.isEnabled());
 
         // Listen to property events
         PropertyEventDispatcher.addListener(this);
-        LOGGER.debug("Plugin initialisation complete");
+        LOGGER.info("Plugin initialisation complete");
     }
 
     public void destroyPlugin() {
         // Stop listening to property events
         PropertyEventDispatcher.removeListener(this);
         // Remove filter from filter chain builder
-        ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
+        final ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
 
-        defaultPortFilter.removeFilterFromChain(connManager.getSocketAcceptor());
-        oldPortFilter.removeFilterFromChain(connManager.getSSLSocketAcceptor());
-        componentPortFilter.removeFilterFromChain(connManager.getComponentAcceptor());
-        multiplexerPortFilter.removeFilterFromChain(connManager.getMultiplexerSocketAcceptor());
+        defaultPortFilter.removeFilterFromChain(connManager.getSocketAcceptor(ConnectionType.SOCKET_C2S, false));
+        oldPortFilter.removeFilterFromChain(connManager.getSocketAcceptor(ConnectionType.SOCKET_C2S, true));
+        componentPortFilter.removeFilterFromChain(connManager.getSocketAcceptor(ConnectionType.COMPONENT, false));
+        multiplexerPortFilter.removeFilterFromChain(connManager.getSocketAcceptor(ConnectionType.CONNECTION_MANAGER, false));
 
         // Remove the filters from existing sessions
         defaultPortFilter.shutdown();
@@ -123,7 +120,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         // Remove the packet interceptor that prints interpreted XML
         interpretedPrinter.wasEnabled(false);
 
-        LOGGER.debug("Plugin destruction complete");
+        LOGGER.info("Plugin destruction complete");
     }
 
     public RawPrintFilter getDefaultPortFilter() {
@@ -146,12 +143,12 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         return interpretedPrinter;
     }
 
-    public void propertySet(String property, Map<String, Object> params) {
+    public void propertySet(final String property, final Map<String, Object> params) {
         final boolean enabled = Boolean.parseBoolean(String.valueOf(params.get("value")));
         enableOrDisableLogger(property, enabled);
     }
 
-    public void propertyDeleted(String property, Map<String, Object> params) {
+    public void propertyDeleted(final String property, final Map<String, Object> params) {
         enableOrDisableLogger(property, false);
     }
 
@@ -163,15 +160,15 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
                     break;
                 case PROPERTY_LOG_TO_STDOUT_ENABLED:
                     loggingToStdOut = enabled;
-                    LOGGER.debug("STDOUT logger {}", enabled ? "enabled" : "disabled");
+                    LOGGER.info("STDOUT logger {}", enabled ? "enabled" : "disabled");
                     break;
                 case PROPERTY_LOG_TO_FILE_ENABLED:
                     loggingToFile = enabled;
-                    LOGGER.debug("file logger {}", enabled ? "enabled" : "disabled");
+                    LOGGER.info("file logger {}", enabled ? "enabled" : "disabled");
                     break;
                 case PROPERTY_LOG_WHITESPACE:
                     logWhitespace = enabled;
-                    LOGGER.debug("whitespace logging {}", enabled ? "enabled" : "disabled");
+                    LOGGER.info("whitespace logging {}", enabled ? "enabled" : "disabled");
                     break;
                 default:
                     // Is it one of the RawPrintFilters?
@@ -185,11 +182,11 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         }
     }
 
-    public void xmlPropertySet(String property, Map<String, Object> params) {
+    public void xmlPropertySet(final String property, final Map<String, Object> params) {
         // Do nothing
     }
 
-    public void xmlPropertyDeleted(String property, Map<String, Object> params) {
+    public void xmlPropertyDeleted(final String property, final Map<String, Object> params) {
         // Do nothing
     }
 
@@ -214,7 +211,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
             System.out.println(messageToLog);
         }
         if (loggingToFile) {
-            LOGGER.debug(messageToLog);
+            LOGGER.info(messageToLog);
         }
     }
 

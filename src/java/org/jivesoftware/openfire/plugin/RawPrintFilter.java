@@ -46,7 +46,7 @@ public class RawPrintFilter extends IoFilterAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(RawPrintFilter.class);
     private static final String FILTER_NAME = "rawDebugger";
 
-    private DebuggerPlugin plugin;
+    private final DebuggerPlugin plugin;
     private final String prefix;
     private final String propertyName;
     private final Collection<IoSession> sessions = new ConcurrentLinkedQueue<>();
@@ -107,15 +107,14 @@ public class RawPrintFilter extends IoFilterAdapter {
         super.messageReceived(nextFilter, session, message);
     }
 
-    private void logBuffer(final IoSession session, final IoBuffer ioBuffer, final String receiveOrSend) {
+    private void logSentBuffer(final IoSession session, final IoBuffer ioBuffer) {
         // Keep current position in the buffer
-        int currentPos = ioBuffer.position();
+        final int currentPos = ioBuffer.position();
         // Decode buffer
-        CharBuffer charBuffer = Charset.forName("UTF-8").decode(ioBuffer.buf());
+        final CharBuffer charBuffer = Charset.forName("UTF-8").decode(ioBuffer.buf());
         // Log buffer content
-        final String message = charBuffer.toString();
-        if (plugin.isLoggingWhitespace() || !message.isEmpty()) {
-            plugin.log(messagePrefix(session, receiveOrSend) + ": " + charBuffer);
+        if (plugin.isLoggingWhitespace() || charBuffer.length() > 0) {
+            plugin.log(messagePrefix(session, "SENT") + ": " + charBuffer);
         }
         // Reset to old position in the buffer
         ioBuffer.position(currentPos);
@@ -128,7 +127,7 @@ public class RawPrintFilter extends IoFilterAdapter {
     @Override
     public void messageSent(final NextFilter nextFilter, final IoSession session, final WriteRequest writeRequest) throws Exception {
         if (enabled && writeRequest.getMessage() instanceof IoBuffer) {
-            logBuffer(session, (IoBuffer) writeRequest.getMessage(), "SENT");
+            logSentBuffer(session, (IoBuffer) writeRequest.getMessage());
         }
         // Pass the message to the next filter
         super.messageSent(nextFilter, session, writeRequest);
@@ -144,12 +143,12 @@ public class RawPrintFilter extends IoFilterAdapter {
 
     void wasEnabled(final boolean enabled) {
         this.enabled = enabled;
-        LOGGER.debug("{} logger {}", prefix, enabled ? "enabled" : "disabled");
+        LOGGER.info("{} logger {}", prefix, enabled ? "enabled" : "disabled");
     }
 
     void shutdown() {
         // Remove this filter from sessions that are using it
-        for (IoSession session : sessions) {
+        for (final IoSession session : sessions) {
             session.getFilterChain().remove(FILTER_NAME);
         }
         sessions.clear();
