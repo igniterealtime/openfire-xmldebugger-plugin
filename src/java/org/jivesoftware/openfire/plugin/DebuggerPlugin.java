@@ -50,6 +50,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     private static final String PROPERTY_LOG_TO_STDOUT_ENABLED = PROPERTY_PREFIX + "logToStdOut";
     private static final String PROPERTY_LOG_TO_FILE_ENABLED = PROPERTY_PREFIX + "logToFile";
     private static final String PROPERTY_LOG_WHITESPACE = PROPERTY_PREFIX + "logWhitespace";
+    private static DebuggerPlugin instance;
 
 
     private final RawPrintFilter defaultPortFilter;
@@ -71,6 +72,15 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         multiplexerPortFilter = new RawPrintFilter(this, "CM");
         rawPrintFilters = new HashSet<>(Arrays.asList(defaultPortFilter, oldPortFilter, componentPortFilter, multiplexerPortFilter));
         interpretedPrinter = new InterpretedXMLPrinter(this);
+        setInstance(this);
+    }
+
+    private static void setInstance(final DebuggerPlugin instance) {
+        DebuggerPlugin.instance = instance;
+    }
+
+    public static DebuggerPlugin getInstance() {
+        return DebuggerPlugin.instance;
     }
 
     public void initializePlugin(final PluginManager pluginManager, final File pluginDirectory) {
