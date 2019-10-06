@@ -2,8 +2,8 @@ package org.jivesoftware.openfire.plugin;
 
 import java.io.IOException;
 
+import org.jivesoftware.admin.FlashMessageTag;
 import org.jivesoftware.util.ParamUtils;
-import org.jivesoftware.util.StringUtils;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -14,17 +14,6 @@ import javax.servlet.http.HttpSession;
 public class ConfigServlet extends HttpServlet {
 
     private static DebuggerPlugin plugin;
-
-    private static void addSessionFlashes(final HttpServletRequest request, final String... flashes) {
-        final HttpSession session = request.getSession();
-        for (final String flash : flashes) {
-            final Object flashValue = session.getAttribute(flash);
-            if (flashValue != null) {
-                request.setAttribute(flash, flashValue);
-                session.setAttribute(flash, null);
-            }
-        }
-    }
 
     @Override
     public void init() {
@@ -42,11 +31,7 @@ public class ConfigServlet extends HttpServlet {
         request.setAttribute("logWhitespace", plugin.isLoggingWhitespace());
         request.setAttribute("loggingToStdOut", plugin.isLoggingToStdOut());
         request.setAttribute("loggingToFile", plugin.isLoggingToFile());
-        final String csrf = StringUtils.randomString(16);
-        request.getSession().setAttribute("csrf", csrf);
-        request.setAttribute("csrf", csrf);
 
-        addSessionFlashes(request, "errorMessage", "warningMessage", "successMessage");
         request.getRequestDispatcher("debugger-configuration.jsp").forward(request, response);
     }
 
@@ -54,15 +39,9 @@ public class ConfigServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
 
         final HttpSession session = request.getSession();
-        final Object csrf = session.getAttribute("csrf");
-        if (csrf == null || !csrf.equals(request.getParameter("csrf"))) {
-            session.setAttribute("errorMessage", "CSRF Failure!");
-            response.sendRedirect(request.getRequestURI());
-            return;
-        }
 
         if (request.getParameter("cancel") != null) {
-            session.setAttribute("warningMessage", "No changes were made");
+            session.setAttribute(FlashMessageTag.WARNING_MESSAGE_KEY, "No changes were made");
             response.sendRedirect(request.getRequestURI());
             return;
         }
@@ -76,7 +55,7 @@ public class ConfigServlet extends HttpServlet {
         plugin.setLoggingToStdOut(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
         plugin.setLoggingToFile(ParamUtils.getBooleanParameter(request, "loggingToFile"));
 
-        session.setAttribute("successMessage", "Logging settings updated");
+        session.setAttribute(FlashMessageTag.SUCCESS_MESSAGE_KEY, "Logging settings updated");
         response.sendRedirect(request.getRequestURI());
     }
 }

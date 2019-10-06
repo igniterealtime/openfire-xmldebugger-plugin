@@ -1,6 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core_1_1" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="admin" prefix="admin" %>
 <jsp:useBean scope="request" id="errorMessage" class="java.lang.String"/>
 <jsp:useBean scope="request" id="warningMessage" class="java.lang.String"/>
 <jsp:useBean scope="request" id="successMessage" class="java.lang.String"/>
@@ -21,17 +22,7 @@
 </head>
 <body>
 
-<c:if test="${not empty errorMessage}">
-    <div class="error">${errorMessage}</div>
-</c:if>
-
-<c:if test="${not empty warningMessage}">
-    <div class="warning">${warningMessage}</div>
-</c:if>
-
-<c:if test="${not empty successMessage}">
-    <div class="success">${successMessage}</div>
-</c:if>
+<admin:FlashMessage/>
 
 <form method="post">
     <input name="csrf" value="<c:out value="${csrf}"/>" type="hidden">
