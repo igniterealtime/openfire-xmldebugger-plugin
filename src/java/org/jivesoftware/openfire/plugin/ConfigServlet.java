@@ -31,7 +31,7 @@ public class ConfigServlet extends HttpServlet {
         request.setAttribute("interpreted", plugin.getInterpretedPrinter().isEnabled());
         request.setAttribute("logWhitespace", DebuggerPlugin.LOG_WHITESPACE.getValue());
         request.setAttribute("loggingToStdOut", plugin.isLoggingToStdOut());
-        request.setAttribute("loggingToFile", plugin.isLoggingToFile());
+        request.setAttribute("loggingToFile", DebuggerPlugin.LOG_TO_FILE.getValue());
 
         request.getRequestDispatcher("debugger-configuration.jsp").forward(request, response);
     }
@@ -54,7 +54,7 @@ public class ConfigServlet extends HttpServlet {
         plugin.getInterpretedPrinter().setEnabled(ParamUtils.getBooleanParameter(request, "interpreted"));
         DebuggerPlugin.LOG_WHITESPACE.setValue(ParamUtils.getBooleanParameter(request, "logWhitespace"));
         plugin.setLoggingToStdOut(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
-        plugin.setLoggingToFile(ParamUtils.getBooleanParameter(request, "loggingToFile"));
+        DebuggerPlugin.LOG_TO_FILE.setValue(ParamUtils.getBooleanParameter(request, "loggingToFile"));
 
         session.setAttribute(FlashMessageTag.SUCCESS_MESSAGE_KEY, "Logging settings updated");
         response.sendRedirect(request.getRequestURI());
