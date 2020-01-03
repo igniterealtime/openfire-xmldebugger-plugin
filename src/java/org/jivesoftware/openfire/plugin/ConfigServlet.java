@@ -30,7 +30,7 @@ public class ConfigServlet extends HttpServlet {
         request.setAttribute("cm", plugin.getMultiplexerPortFilter().isEnabled());
         request.setAttribute("interpreted", plugin.getInterpretedPrinter().isEnabled());
         request.setAttribute("logWhitespace", DebuggerPlugin.LOG_WHITESPACE.getValue());
-        request.setAttribute("loggingToStdOut", plugin.isLoggingToStdOut());
+        request.setAttribute("loggingToStdOut", DebuggerPlugin.LOG_TO_STDOUT.getValue());
         request.setAttribute("loggingToFile", DebuggerPlugin.LOG_TO_FILE.getValue());
 
         request.getRequestDispatcher("debugger-configuration.jsp").forward(request, response);
@@ -53,7 +53,7 @@ public class ConfigServlet extends HttpServlet {
         plugin.getMultiplexerPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "cm"));
         plugin.getInterpretedPrinter().setEnabled(ParamUtils.getBooleanParameter(request, "interpreted"));
         DebuggerPlugin.LOG_WHITESPACE.setValue(ParamUtils.getBooleanParameter(request, "logWhitespace"));
-        plugin.setLoggingToStdOut(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
+        DebuggerPlugin.LOG_TO_STDOUT.setValue(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
         DebuggerPlugin.LOG_TO_FILE.setValue(ParamUtils.getBooleanParameter(request, "loggingToFile"));
 
         session.setAttribute(FlashMessageTag.SUCCESS_MESSAGE_KEY, "Logging settings updated");

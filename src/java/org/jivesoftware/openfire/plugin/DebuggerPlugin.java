@@ -28,7 +28,6 @@ import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.container.PluginManagerListener;
 import org.jivesoftware.openfire.spi.ConnectionManagerImpl;
 import org.jivesoftware.openfire.spi.ConnectionType;
-import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.PropertyEventDispatcher;
 import org.jivesoftware.util.PropertyEventListener;
 import org.jivesoftware.util.SystemProperty;
@@ -49,7 +48,6 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(DebuggerPlugin.class);
 
     static final String PROPERTY_PREFIX = "plugin.xmldebugger.";
-    private static final String PROPERTY_LOG_TO_STDOUT_ENABLED = PROPERTY_PREFIX + "logToStdOut";
     public static final SystemProperty<Boolean> LOG_WHITESPACE = SystemProperty.Builder.ofType(Boolean.class)
         .setKey(PROPERTY_PREFIX + "logWhitespace")
         .setDefaultValue(Boolean.FALSE)
@@ -62,6 +60,12 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         .setDynamic(true)
         .setPlugin(PLUGIN_NAME)
         .build();
+    public static final SystemProperty<Boolean> LOG_TO_STDOUT = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey(PROPERTY_PREFIX + "logToStdOut")
+        .setDefaultValue(Boolean.TRUE)
+        .setDynamic(true)
+        .setPlugin(PLUGIN_NAME)
+        .build();
     private static DebuggerPlugin instance;
 
     private final RawPrintFilter defaultPortFilter;
@@ -70,10 +74,8 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     private final RawPrintFilter multiplexerPortFilter;
     private final Set<RawPrintFilter> rawPrintFilters;
     private final InterpretedXMLPrinter interpretedPrinter;
-    private boolean loggingToStdOut;
 
     public DebuggerPlugin() {
-        loggingToStdOut = JiveGlobals.getBooleanProperty(PROPERTY_LOG_TO_STDOUT_ENABLED, true);
         defaultPortFilter = new RawPrintFilter(this, "C2S");
         oldPortFilter = new RawPrintFilter(this, "SSL");
         componentPortFilter = new RawPrintFilter(this, "ExComp");
@@ -176,10 +178,6 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
                 case InterpretedXMLPrinter.PROPERTY_ENABLED:
                     interpretedPrinter.wasEnabled(enabled);
                     break;
-                case PROPERTY_LOG_TO_STDOUT_ENABLED:
-                    loggingToStdOut = enabled;
-                    LOGGER.info("STDOUT logger {}", enabled ? "enabled" : "disabled");
-                    break;
                 default:
                     // Is it one of the RawPrintFilters?
                     for (final RawPrintFilter filter : rawPrintFilters) {
@@ -200,16 +198,8 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         // Do nothing
     }
 
-    public boolean isLoggingToStdOut() {
-        return loggingToStdOut;
-    }
-
-    public void setLoggingToStdOut(final boolean enabled) {
-        JiveGlobals.setProperty(PROPERTY_LOG_TO_STDOUT_ENABLED, String.valueOf(enabled));
-    }
-
     void log(final String messageToLog) {
-        if (loggingToStdOut) {
+        if (LOG_TO_STDOUT.getValue()) {
             System.out.println(messageToLog);
         }
         if (LOG_TO_FILE.getValue()) {
