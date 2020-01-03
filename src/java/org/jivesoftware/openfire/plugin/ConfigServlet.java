@@ -11,6 +11,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+@SuppressWarnings("serial")
 public class ConfigServlet extends HttpServlet {
 
     private static DebuggerPlugin plugin;
@@ -21,7 +22,7 @@ public class ConfigServlet extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 
         request.setAttribute("c2s", plugin.getDefaultPortFilter().isEnabled());
         request.setAttribute("ssl", plugin.getOldPortFilter().isEnabled());
@@ -36,7 +37,7 @@ public class ConfigServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    protected void doPost(final HttpServletRequest request, final HttpServletResponse response) throws IOException {
 
         final HttpSession session = request.getSession();
 
