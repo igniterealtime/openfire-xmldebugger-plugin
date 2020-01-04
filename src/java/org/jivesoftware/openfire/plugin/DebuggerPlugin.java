@@ -58,7 +58,7 @@ public class DebuggerPlugin implements Plugin {
         .addListener(enabled -> DebuggerPlugin.this.logWhitespace = enabled)
         .build();
     private boolean loggingToStdOut;
-    private final SystemProperty<Boolean> logToStdOutProperty = SystemProperty.Builder.ofType(Boolean.class)
+    private final SystemProperty<Boolean> loggingToStdOutProperty = SystemProperty.Builder.ofType(Boolean.class)
         .setKey(PROPERTY_PREFIX + "logToStdOut")
         .setDefaultValue(Boolean.TRUE)
         .setDynamic(true)
@@ -75,6 +75,9 @@ public class DebuggerPlugin implements Plugin {
         .build();
 
     public DebuggerPlugin() {
+        logWhitespace = logWhitespaceProperty.getValue();
+        loggingToFile = loggingToFileProperty.getValue();
+        loggingToStdOut = loggingToStdOutProperty.getValue();
         defaultPortFilter = new RawPrintFilter(this, "C2S");
         oldPortFilter = new RawPrintFilter(this, "SSL");
         componentPortFilter = new RawPrintFilter(this, "ExComp");
@@ -162,7 +165,7 @@ public class DebuggerPlugin implements Plugin {
     }
 
     public void setLoggingToStdOut(final boolean enabled) {
-        logToStdOutProperty.setValue(enabled);
+        loggingToStdOutProperty.setValue(enabled);
     }
 
     public boolean isLoggingToFile() {
