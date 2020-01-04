@@ -20,7 +20,7 @@ import static org.jivesoftware.openfire.spi.ConnectionManagerImpl.COMPRESSION_FI
 import static org.jivesoftware.openfire.spi.ConnectionManagerImpl.TLS_FILTER_NAME;
 
 import java.nio.CharBuffer;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -30,7 +30,7 @@ import org.apache.mina.core.filterchain.IoFilterAdapter;
 import org.apache.mina.core.session.IoSession;
 import org.apache.mina.core.write.WriteRequest;
 import org.apache.mina.transport.socket.SocketAcceptor;
-import org.jivesoftware.util.JiveGlobals;
+import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,18 +45,23 @@ public class RawPrintFilter extends IoFilterAdapter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RawPrintFilter.class);
     private static final String FILTER_NAME = "rawDebugger";
-
+    public final SystemProperty<Boolean> enabled;
     private final DebuggerPlugin plugin;
     private final String prefix;
     private final String propertyName;
     private final Collection<IoSession> sessions = new ConcurrentLinkedQueue<>();
-    private boolean enabled;
 
     RawPrintFilter(final DebuggerPlugin plugin, final String prefix) {
         this.plugin = plugin;
         this.prefix = prefix;
         this.propertyName = DebuggerPlugin.PROPERTY_PREFIX + prefix.toLowerCase();
-        this.enabled = JiveGlobals.getBooleanProperty(propertyName, true);
+        enabled = SystemProperty.Builder.ofType(Boolean.class)
+            .setKey(DebuggerPlugin.PROPERTY_PREFIX + prefix.toLowerCase())
+            .setDefaultValue(Boolean.TRUE)
+            .setDynamic(true)
+            .setPlugin(DebuggerPlugin.PLUGIN_NAME)
+            .addListener(this::enabled)
+            .build();
     }
 
     String getPropertyName() {
@@ -71,13 +76,13 @@ public class RawPrintFilter extends IoFilterAdapter {
 
         final DefaultIoFilterChainBuilder chain = acceptor.getFilterChain();
         if (chain.contains(COMPRESSION_FILTER_NAME)) {
-            LOGGER.debug("Adding filter '{}' for {} as the first filter after the compression filter in acceptor {}", new Object[]{FILTER_NAME, prefix, acceptor});
+            LOGGER.debug("Adding filter '{}' for {} as the first filter after the compression filter in acceptor {}", FILTER_NAME, prefix, acceptor);
             chain.addAfter(COMPRESSION_FILTER_NAME, FILTER_NAME, this);
         } else if (chain.contains(TLS_FILTER_NAME)) {
-            LOGGER.debug("Adding filter '{}' for {} as the first filter after the TLS filter in acceptor {}", new Object[]{FILTER_NAME, prefix, acceptor});
+            LOGGER.debug("Adding filter '{}' for {} as the first filter after the TLS filter in acceptor {}", FILTER_NAME, prefix, acceptor);
             chain.addAfter(TLS_FILTER_NAME, FILTER_NAME, this);
         } else {
-            LOGGER.debug("Adding filter '{}' for {} as the last filter in acceptor {}", new Object[]{FILTER_NAME, prefix, acceptor});
+            LOGGER.debug("Adding filter '{}' for {} as the last filter in acceptor {}", FILTER_NAME, prefix, acceptor);
             chain.addLast(FILTER_NAME, this);
         }
     }
@@ -89,10 +94,10 @@ public class RawPrintFilter extends IoFilterAdapter {
         }
 
         if (acceptor.getFilterChain().contains(FILTER_NAME)) {
-            LOGGER.debug("Removing filter '{}' for {} from acceptor {}", new Object[]{FILTER_NAME, prefix, acceptor});
+            LOGGER.debug("Removing filter '{}' for {} from acceptor {}", FILTER_NAME, prefix, acceptor);
             acceptor.getFilterChain().remove(FILTER_NAME);
         } else {
-            LOGGER.debug("Unable to remove non-existing filter '{}' for {} from acceptor {}", new Object[]{FILTER_NAME, prefix, acceptor});
+            LOGGER.debug("Unable to remove non-existing filter '{}' for {} from acceptor {}", FILTER_NAME, prefix, acceptor);
         }
     }
 
@@ -100,7 +105,7 @@ public class RawPrintFilter extends IoFilterAdapter {
     @Override
     public void messageReceived(final NextFilter nextFilter, final IoSession session, final Object message) throws Exception {
         // Decode the bytebuffer and print it to the stdout
-        if (enabled && message instanceof String && (DebuggerPlugin.LOG_WHITESPACE.getValue() || !((String) message).isEmpty())) {
+        if (enabled.getValue() && message instanceof String && (DebuggerPlugin.LOG_WHITESPACE.getValue() || !((String) message).isEmpty())) {
             plugin.log(messagePrefix(session, "RECV") + ": " + message);
         }
         // Pass the message to the next filter
@@ -111,7 +116,7 @@ public class RawPrintFilter extends IoFilterAdapter {
         // Keep current position in the buffer
         final int currentPos = ioBuffer.position();
         // Decode buffer
-        final CharBuffer charBuffer = Charset.forName("UTF-8").decode(ioBuffer.buf());
+        final CharBuffer charBuffer = StandardCharsets.UTF_8.decode(ioBuffer.buf());
         // Log buffer content
         if (DebuggerPlugin.LOG_WHITESPACE.getValue() || charBuffer.length() > 0) {
             plugin.log(messagePrefix(session, "SENT") + ": " + charBuffer);
@@ -126,23 +131,14 @@ public class RawPrintFilter extends IoFilterAdapter {
 
     @Override
     public void messageSent(final NextFilter nextFilter, final IoSession session, final WriteRequest writeRequest) throws Exception {
-        if (enabled && writeRequest.getMessage() instanceof IoBuffer) {
+        if (enabled.getValue() && writeRequest.getMessage() instanceof IoBuffer) {
             logSentBuffer(session, (IoBuffer) writeRequest.getMessage());
         }
         // Pass the message to the next filter
         super.messageSent(nextFilter, session, writeRequest);
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(final boolean enabled) {
-        JiveGlobals.setProperty(propertyName, Boolean.toString(enabled));
-    }
-
-    void wasEnabled(final boolean enabled) {
-        this.enabled = enabled;
+    private void enabled(final boolean enabled) {
         LOGGER.info("{} logger {}", prefix, enabled ? "enabled" : "disabled");
     }
 
@@ -158,7 +154,7 @@ public class RawPrintFilter extends IoFilterAdapter {
     public void sessionCreated(final NextFilter nextFilter, final IoSession session) throws Exception {
         // Keep track of sessions using this filter
         sessions.add(session);
-        if (enabled) {
+        if (enabled.getValue()) {
             // Log that a session was opened
             plugin.log(messagePrefix(session, "OPEN"));
         }
@@ -169,7 +165,7 @@ public class RawPrintFilter extends IoFilterAdapter {
     public void sessionClosed(final NextFilter nextFilter, final IoSession session) throws Exception {
         // Update list of sessions using this filter
         sessions.remove(session);
-        if (enabled) {
+        if (enabled.getValue()) {
             // Log that a session was closed
             plugin.log(messagePrefix(session, "CLSD"));
         }

@@ -17,10 +17,6 @@
 package org.jivesoftware.openfire.plugin;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
@@ -28,8 +24,6 @@ import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.container.PluginManagerListener;
 import org.jivesoftware.openfire.spi.ConnectionManagerImpl;
 import org.jivesoftware.openfire.spi.ConnectionType;
-import org.jivesoftware.util.PropertyEventDispatcher;
-import org.jivesoftware.util.PropertyEventListener;
 import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +36,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Gaston Dombiak
  */
-public class DebuggerPlugin implements Plugin, PropertyEventListener {
+public class DebuggerPlugin implements Plugin {
 
     static final String PLUGIN_NAME = "XML Debugger Plugin"; // Exact match to plugin.xml
     private static final Logger LOGGER = LoggerFactory.getLogger(DebuggerPlugin.class);
@@ -72,14 +66,12 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     private final RawPrintFilter oldPortFilter;
     private final RawPrintFilter componentPortFilter;
     private final RawPrintFilter multiplexerPortFilter;
-    private final Set<RawPrintFilter> rawPrintFilters;
 
     public DebuggerPlugin() {
         defaultPortFilter = new RawPrintFilter(this, "C2S");
         oldPortFilter = new RawPrintFilter(this, "SSL");
         componentPortFilter = new RawPrintFilter(this, "ExComp");
         multiplexerPortFilter = new RawPrintFilter(this, "CM");
-        rawPrintFilters = new HashSet<>(Arrays.asList(defaultPortFilter, oldPortFilter, componentPortFilter, multiplexerPortFilter));
         new InterpretedXMLPrinter(this);
         setInstance(this);
     }
@@ -114,14 +106,10 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
 
         InterpretedXMLPrinter.enabled(InterpretedXMLPrinter.ENABLED.getValue());
 
-        // Listen to property events
-        PropertyEventDispatcher.addListener(this);
         LOGGER.info("Plugin initialisation complete");
     }
 
     public void destroyPlugin() {
-        // Stop listening to property events
-        PropertyEventDispatcher.removeListener(this);
         // Remove filter from filter chain builder
         final ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
 
@@ -156,38 +144,6 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
 
     public RawPrintFilter getMultiplexerPortFilter() {
         return multiplexerPortFilter;
-    }
-
-    public void propertySet(final String property, final Map<String, Object> params) {
-        final boolean enabled = Boolean.parseBoolean(String.valueOf(params.get("value")));
-        enableOrDisableLogger(property, enabled);
-    }
-
-    public void propertyDeleted(final String property, final Map<String, Object> params) {
-        enableOrDisableLogger(property, false);
-    }
-
-    private void enableOrDisableLogger(final String property, final boolean enabled) {
-        if (property.startsWith(PROPERTY_PREFIX)) {
-            switch (property) {
-                default:
-                    // Is it one of the RawPrintFilters?
-                    for (final RawPrintFilter filter : rawPrintFilters) {
-                        if (filter.getPropertyName().equals(property)) {
-                            filter.wasEnabled(enabled);
-                            break;
-                        }
-                    }
-            }
-        }
-    }
-
-    public void xmlPropertySet(final String property, final Map<String, Object> params) {
-        // Do nothing
-    }
-
-    public void xmlPropertyDeleted(final String property, final Map<String, Object> params) {
-        // Do nothing
     }
 
     void log(final String messageToLog) {
