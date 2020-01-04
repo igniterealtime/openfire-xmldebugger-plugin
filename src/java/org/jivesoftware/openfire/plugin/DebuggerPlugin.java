@@ -192,5 +192,4 @@ public class DebuggerPlugin implements Plugin {
     public boolean isLoggingWhitespace() {
         return logWhitespace;
     }
-
 }
