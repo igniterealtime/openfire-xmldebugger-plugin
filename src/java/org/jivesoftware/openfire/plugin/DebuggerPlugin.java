@@ -42,24 +42,6 @@ public class DebuggerPlugin implements Plugin {
     private static final Logger LOGGER = LoggerFactory.getLogger(DebuggerPlugin.class);
 
     static final String PROPERTY_PREFIX = "plugin.xmldebugger.";
-    public static final SystemProperty<Boolean> LOG_WHITESPACE = SystemProperty.Builder.ofType(Boolean.class)
-        .setKey(PROPERTY_PREFIX + "logWhitespace")
-        .setDefaultValue(Boolean.FALSE)
-        .setDynamic(true)
-        .setPlugin(PLUGIN_NAME)
-        .build();
-    public static final SystemProperty<Boolean> LOG_TO_FILE = SystemProperty.Builder.ofType(Boolean.class)
-        .setKey(PROPERTY_PREFIX + "logToFile")
-        .setDefaultValue(Boolean.FALSE)
-        .setDynamic(true)
-        .setPlugin(PLUGIN_NAME)
-        .build();
-    public static final SystemProperty<Boolean> LOG_TO_STDOUT = SystemProperty.Builder.ofType(Boolean.class)
-        .setKey(PROPERTY_PREFIX + "logToStdOut")
-        .setDefaultValue(Boolean.TRUE)
-        .setDynamic(true)
-        .setPlugin(PLUGIN_NAME)
-        .build();
     private static DebuggerPlugin instance;
 
     private final RawPrintFilter defaultPortFilter;
@@ -67,6 +49,30 @@ public class DebuggerPlugin implements Plugin {
     private final RawPrintFilter componentPortFilter;
     private final RawPrintFilter multiplexerPortFilter;
     private final InterpretedXMLPrinter interpretedPrinter;
+    private boolean logWhitespace;
+    private final SystemProperty<Boolean> logWhitespaceProperty = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey(PROPERTY_PREFIX + "logWhitespace")
+        .setDefaultValue(Boolean.FALSE)
+        .setDynamic(true)
+        .setPlugin(PLUGIN_NAME)
+        .addListener(enabled -> DebuggerPlugin.this.logWhitespace = enabled)
+        .build();
+    private boolean loggingToStdOut;
+    private final SystemProperty<Boolean> logToStdOutProperty = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey(PROPERTY_PREFIX + "logToStdOut")
+        .setDefaultValue(Boolean.TRUE)
+        .setDynamic(true)
+        .setPlugin(PLUGIN_NAME)
+        .addListener(enabled -> DebuggerPlugin.this.loggingToStdOut = enabled)
+        .build();
+    private boolean loggingToFile;
+    private final SystemProperty<Boolean> loggingToFileProperty = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey(PROPERTY_PREFIX + "logToFile")
+        .setDefaultValue(Boolean.FALSE)
+        .setDynamic(true)
+        .setPlugin(PLUGIN_NAME)
+        .addListener(enabled -> DebuggerPlugin.this.loggingToFile = enabled)
+        .build();
 
     public DebuggerPlugin() {
         defaultPortFilter = new RawPrintFilter(this, "C2S");
@@ -151,13 +157,37 @@ public class DebuggerPlugin implements Plugin {
         return interpretedPrinter;
     }
 
+    public boolean isLoggingToStdOut() {
+        return loggingToStdOut;
+    }
+
+    public void setLoggingToStdOut(final boolean enabled) {
+        logToStdOutProperty.setValue(enabled);
+    }
+
+    public boolean isLoggingToFile() {
+        return loggingToFile;
+    }
+
+    public void setLoggingToFile(final boolean enabled) {
+        loggingToFileProperty.setValue(enabled);
+    }
+
     void log(final String messageToLog) {
-        if (LOG_TO_STDOUT.getValue()) {
+        if (loggingToStdOut) {
             System.out.println(messageToLog);
         }
-        if (LOG_TO_FILE.getValue()) {
+        if (loggingToFile) {
             LOGGER.info(messageToLog);
         }
+    }
+
+    public void setLogWhitespace(final boolean enabled) {
+        logWhitespaceProperty.setValue(enabled);
+    }
+
+    public boolean isLoggingWhitespace() {
+        return logWhitespace;
     }
 
 }

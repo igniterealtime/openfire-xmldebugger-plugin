@@ -29,9 +29,9 @@ public class ConfigServlet extends HttpServlet {
         request.setAttribute("extcomp", plugin.getComponentPortFilter().isEnabled());
         request.setAttribute("cm", plugin.getMultiplexerPortFilter().isEnabled());
         request.setAttribute("interpreted", plugin.getInterpretedPrinter().isEnabled());
-        request.setAttribute("logWhitespace", DebuggerPlugin.LOG_WHITESPACE.getValue());
-        request.setAttribute("loggingToStdOut", DebuggerPlugin.LOG_TO_STDOUT.getValue());
-        request.setAttribute("loggingToFile", DebuggerPlugin.LOG_TO_FILE.getValue());
+        request.setAttribute("logWhitespace", plugin.isLoggingWhitespace());
+        request.setAttribute("loggingToStdOut", plugin.isLoggingToStdOut());
+        request.setAttribute("loggingToFile", plugin.isLoggingToFile());
 
         request.getRequestDispatcher("debugger-configuration.jsp").forward(request, response);
     }
@@ -52,9 +52,9 @@ public class ConfigServlet extends HttpServlet {
         plugin.getComponentPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "extcomp"));
         plugin.getMultiplexerPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "cm"));
         plugin.getInterpretedPrinter().setEnabled(ParamUtils.getBooleanParameter(request, "interpreted"));
-        DebuggerPlugin.LOG_WHITESPACE.setValue(ParamUtils.getBooleanParameter(request, "logWhitespace"));
-        DebuggerPlugin.LOG_TO_STDOUT.setValue(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
-        DebuggerPlugin.LOG_TO_FILE.setValue(ParamUtils.getBooleanParameter(request, "loggingToFile"));
+        plugin.setLogWhitespace(ParamUtils.getBooleanParameter(request, "logWhitespace"));
+        plugin.setLoggingToStdOut(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
+        plugin.setLoggingToFile(ParamUtils.getBooleanParameter(request, "loggingToFile"));
 
         session.setAttribute(FlashMessageTag.SUCCESS_MESSAGE_KEY, "Logging settings updated");
         response.sendRedirect(request.getRequestURI());
