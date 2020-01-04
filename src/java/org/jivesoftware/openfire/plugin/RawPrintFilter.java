@@ -45,27 +45,23 @@ public class RawPrintFilter extends IoFilterAdapter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RawPrintFilter.class);
     private static final String FILTER_NAME = "rawDebugger";
-    public final SystemProperty<Boolean> enabled;
     private final DebuggerPlugin plugin;
     private final String prefix;
-    private final String propertyName;
     private final Collection<IoSession> sessions = new ConcurrentLinkedQueue<>();
+    private boolean enabled;
+    private final SystemProperty<Boolean> enabledProperty;
 
     RawPrintFilter(final DebuggerPlugin plugin, final String prefix) {
         this.plugin = plugin;
         this.prefix = prefix;
-        this.propertyName = DebuggerPlugin.PROPERTY_PREFIX + prefix.toLowerCase();
-        enabled = SystemProperty.Builder.ofType(Boolean.class)
+        this.enabledProperty = SystemProperty.Builder.ofType(Boolean.class)
             .setKey(DebuggerPlugin.PROPERTY_PREFIX + prefix.toLowerCase())
             .setDefaultValue(Boolean.TRUE)
             .setDynamic(true)
             .setPlugin(DebuggerPlugin.PLUGIN_NAME)
             .addListener(this::enabled)
             .build();
-    }
 
-    String getPropertyName() {
-        return propertyName;
     }
 
     void addFilterToChain(final SocketAcceptor acceptor) {
@@ -105,7 +101,7 @@ public class RawPrintFilter extends IoFilterAdapter {
     @Override
     public void messageReceived(final NextFilter nextFilter, final IoSession session, final Object message) throws Exception {
         // Decode the bytebuffer and print it to the stdout
-        if (enabled.getValue() && message instanceof String && (DebuggerPlugin.LOG_WHITESPACE.getValue() || !((String) message).isEmpty())) {
+        if (enabled && message instanceof String && (DebuggerPlugin.LOG_WHITESPACE.getValue() || !((String) message).isEmpty())) {
             plugin.log(messagePrefix(session, "RECV") + ": " + message);
         }
         // Pass the message to the next filter
@@ -131,14 +127,23 @@ public class RawPrintFilter extends IoFilterAdapter {
 
     @Override
     public void messageSent(final NextFilter nextFilter, final IoSession session, final WriteRequest writeRequest) throws Exception {
-        if (enabled.getValue() && writeRequest.getMessage() instanceof IoBuffer) {
+        if (enabled && writeRequest.getMessage() instanceof IoBuffer) {
             logSentBuffer(session, (IoBuffer) writeRequest.getMessage());
         }
         // Pass the message to the next filter
         super.messageSent(nextFilter, session, writeRequest);
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+        enabledProperty.setValue(enabled);
+    }
+
     private void enabled(final boolean enabled) {
+        this.enabled = enabled;
         LOGGER.info("{} logger {}", prefix, enabled ? "enabled" : "disabled");
     }
 
@@ -154,7 +159,7 @@ public class RawPrintFilter extends IoFilterAdapter {
     public void sessionCreated(final NextFilter nextFilter, final IoSession session) throws Exception {
         // Keep track of sessions using this filter
         sessions.add(session);
-        if (enabled.getValue()) {
+        if (enabled) {
             // Log that a session was opened
             plugin.log(messagePrefix(session, "OPEN"));
         }
@@ -165,7 +170,7 @@ public class RawPrintFilter extends IoFilterAdapter {
     public void sessionClosed(final NextFilter nextFilter, final IoSession session) throws Exception {
         // Update list of sessions using this filter
         sessions.remove(session);
-        if (enabled.getValue()) {
+        if (enabled) {
             // Log that a session was closed
             plugin.log(messagePrefix(session, "CLSD"));
         }

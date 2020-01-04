@@ -24,10 +24,10 @@ public class ConfigServlet extends HttpServlet {
     @Override
     protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 
-        request.setAttribute("c2s", plugin.getDefaultPortFilter().enabled.getValue());
-        request.setAttribute("ssl", plugin.getOldPortFilter().enabled.getValue());
-        request.setAttribute("extcomp", plugin.getComponentPortFilter().enabled.getValue());
-        request.setAttribute("cm", plugin.getMultiplexerPortFilter().enabled.getValue());
+        request.setAttribute("c2s", plugin.getDefaultPortFilter().isEnabled());
+        request.setAttribute("ssl", plugin.getOldPortFilter().isEnabled());
+        request.setAttribute("extcomp", plugin.getComponentPortFilter().isEnabled());
+        request.setAttribute("cm", plugin.getMultiplexerPortFilter().isEnabled());
         request.setAttribute("interpreted", InterpretedXMLPrinter.ENABLED.getValue());
         request.setAttribute("logWhitespace", DebuggerPlugin.LOG_WHITESPACE.getValue());
         request.setAttribute("loggingToStdOut", DebuggerPlugin.LOG_TO_STDOUT.getValue());
@@ -47,10 +47,10 @@ public class ConfigServlet extends HttpServlet {
             return;
         }
 
-        plugin.getDefaultPortFilter().enabled.setValue(ParamUtils.getBooleanParameter(request, "c2s"));
-        plugin.getOldPortFilter().enabled.setValue(ParamUtils.getBooleanParameter(request, "ssl"));
-        plugin.getComponentPortFilter().enabled.setValue(ParamUtils.getBooleanParameter(request, "extcomp"));
-        plugin.getMultiplexerPortFilter().enabled.setValue(ParamUtils.getBooleanParameter(request, "cm"));
+        plugin.getDefaultPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "c2s"));
+        plugin.getOldPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "ssl"));
+        plugin.getComponentPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "extcomp"));
+        plugin.getMultiplexerPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "cm"));
         InterpretedXMLPrinter.ENABLED.setValue(ParamUtils.getBooleanParameter(request, "interpreted"));
         DebuggerPlugin.LOG_WHITESPACE.setValue(ParamUtils.getBooleanParameter(request, "logWhitespace"));
         DebuggerPlugin.LOG_TO_STDOUT.setValue(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
