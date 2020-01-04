@@ -66,13 +66,14 @@ public class DebuggerPlugin implements Plugin {
     private final RawPrintFilter oldPortFilter;
     private final RawPrintFilter componentPortFilter;
     private final RawPrintFilter multiplexerPortFilter;
+    private final InterpretedXMLPrinter interpretedPrinter;
 
     public DebuggerPlugin() {
         defaultPortFilter = new RawPrintFilter(this, "C2S");
         oldPortFilter = new RawPrintFilter(this, "SSL");
         componentPortFilter = new RawPrintFilter(this, "ExComp");
         multiplexerPortFilter = new RawPrintFilter(this, "CM");
-        new InterpretedXMLPrinter(this);
+        interpretedPrinter = new InterpretedXMLPrinter(this);
         setInstance(this);
     }
 
@@ -104,7 +105,7 @@ public class DebuggerPlugin implements Plugin {
         componentPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.COMPONENT, false));
         multiplexerPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.CONNECTION_MANAGER, false));
 
-        InterpretedXMLPrinter.enabled(InterpretedXMLPrinter.ENABLED.getValue());
+        interpretedPrinter.setEnabled(interpretedPrinter.isEnabled());
 
         LOGGER.info("Plugin initialisation complete");
     }
@@ -125,7 +126,7 @@ public class DebuggerPlugin implements Plugin {
         multiplexerPortFilter.shutdown();
 
         // Remove the packet interceptor that prints interpreted XML
-        InterpretedXMLPrinter.enabled(false);
+        interpretedPrinter.shutdown();
 
         LOGGER.info("Plugin destruction complete");
     }
@@ -144,6 +145,10 @@ public class DebuggerPlugin implements Plugin {
 
     public RawPrintFilter getMultiplexerPortFilter() {
         return multiplexerPortFilter;
+    }
+
+    public InterpretedXMLPrinter getInterpretedPrinter() {
+        return interpretedPrinter;
     }
 
     void log(final String messageToLog) {

@@ -39,19 +39,18 @@ import org.xmpp.packet.Packet;
 public class InterpretedXMLPrinter implements PacketInterceptor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InterpretedXMLPrinter.class);
-    public static final SystemProperty<Boolean> ENABLED = SystemProperty.Builder.ofType(Boolean.class)
+    private final SystemProperty<Boolean> enabledProperty = SystemProperty.Builder.ofType(Boolean.class)
         .setKey(DebuggerPlugin.PROPERTY_PREFIX + "interpretedAllowed")
         .setDefaultValue(Boolean.FALSE)
         .setDynamic(true)
         .setPlugin(DebuggerPlugin.PLUGIN_NAME)
-        .addListener(InterpretedXMLPrinter::enabled)
+        .addListener(this::enabled)
         .build();
-    private static InterpretedXMLPrinter instance;
     private final DebuggerPlugin plugin;
+    private boolean enabled;
 
     InterpretedXMLPrinter(final DebuggerPlugin plugin) {
         this.plugin = plugin;
-        InterpretedXMLPrinter.instance = this;
     }
 
     @Override
@@ -68,14 +67,27 @@ public class InterpretedXMLPrinter implements PacketInterceptor {
         }
     }
 
-    static void enabled(final boolean enabled) {
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+        enabledProperty.setValue(enabled);
+    }
+
+    private void enabled(final boolean enabled) {
+        this.enabled = enabled;
         if (enabled) {
             LOGGER.info("Interpreted XML logger enabled");
-            InterceptorManager.getInstance().addInterceptor(instance);
+            InterceptorManager.getInstance().addInterceptor(this);
         } else {
             LOGGER.info("Interpreted XML logger disabled");
-            InterceptorManager.getInstance().removeInterceptor(instance);
+            shutdown();
         }
+    }
+
+    void shutdown() {
+        InterceptorManager.getInstance().removeInterceptor(this);
     }
 
 }

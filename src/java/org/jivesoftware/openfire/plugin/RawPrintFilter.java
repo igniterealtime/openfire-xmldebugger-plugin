@@ -61,7 +61,7 @@ public class RawPrintFilter extends IoFilterAdapter {
             .setPlugin(DebuggerPlugin.PLUGIN_NAME)
             .addListener(this::enabled)
             .build();
-
+        this.enabled(enabledProperty.getValue());
     }
 
     void addFilterToChain(final SocketAcceptor acceptor) {
