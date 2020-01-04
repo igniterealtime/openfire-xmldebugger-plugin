@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DebuggerPlugin implements Plugin, PropertyEventListener {
 
-    private static final String PLUGIN_NAME = "XML Debugger Plugin"; // Exact match to plugin.xml
+    static final String PLUGIN_NAME = "XML Debugger Plugin"; // Exact match to plugin.xml
     private static final Logger LOGGER = LoggerFactory.getLogger(DebuggerPlugin.class);
 
     static final String PROPERTY_PREFIX = "plugin.xmldebugger.";
@@ -73,7 +73,6 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     private final RawPrintFilter componentPortFilter;
     private final RawPrintFilter multiplexerPortFilter;
     private final Set<RawPrintFilter> rawPrintFilters;
-    private final InterpretedXMLPrinter interpretedPrinter;
 
     public DebuggerPlugin() {
         defaultPortFilter = new RawPrintFilter(this, "C2S");
@@ -81,7 +80,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         componentPortFilter = new RawPrintFilter(this, "ExComp");
         multiplexerPortFilter = new RawPrintFilter(this, "CM");
         rawPrintFilters = new HashSet<>(Arrays.asList(defaultPortFilter, oldPortFilter, componentPortFilter, multiplexerPortFilter));
-        interpretedPrinter = new InterpretedXMLPrinter(this);
+        new InterpretedXMLPrinter(this);
         setInstance(this);
     }
 
@@ -113,7 +112,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         componentPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.COMPONENT, false));
         multiplexerPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.CONNECTION_MANAGER, false));
 
-        interpretedPrinter.wasEnabled(interpretedPrinter.isEnabled());
+        InterpretedXMLPrinter.enabled(InterpretedXMLPrinter.ENABLED.getValue());
 
         // Listen to property events
         PropertyEventDispatcher.addListener(this);
@@ -138,7 +137,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         multiplexerPortFilter.shutdown();
 
         // Remove the packet interceptor that prints interpreted XML
-        interpretedPrinter.wasEnabled(false);
+        InterpretedXMLPrinter.enabled(false);
 
         LOGGER.info("Plugin destruction complete");
     }
@@ -159,10 +158,6 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         return multiplexerPortFilter;
     }
 
-    public InterpretedXMLPrinter getInterpretedPrinter() {
-        return interpretedPrinter;
-    }
-
     public void propertySet(final String property, final Map<String, Object> params) {
         final boolean enabled = Boolean.parseBoolean(String.valueOf(params.get("value")));
         enableOrDisableLogger(property, enabled);
@@ -175,9 +170,6 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     private void enableOrDisableLogger(final String property, final boolean enabled) {
         if (property.startsWith(PROPERTY_PREFIX)) {
             switch (property) {
-                case InterpretedXMLPrinter.PROPERTY_ENABLED:
-                    interpretedPrinter.wasEnabled(enabled);
-                    break;
                 default:
                     // Is it one of the RawPrintFilters?
                     for (final RawPrintFilter filter : rawPrintFilters) {

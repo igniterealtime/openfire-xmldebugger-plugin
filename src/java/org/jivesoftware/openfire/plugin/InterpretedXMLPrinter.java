@@ -21,7 +21,7 @@ import java.net.UnknownHostException;
 import org.jivesoftware.openfire.interceptor.InterceptorManager;
 import org.jivesoftware.openfire.interceptor.PacketInterceptor;
 import org.jivesoftware.openfire.session.Session;
-import org.jivesoftware.util.JiveGlobals;
+import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xmpp.packet.Packet;
@@ -39,12 +39,19 @@ import org.xmpp.packet.Packet;
 public class InterpretedXMLPrinter implements PacketInterceptor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InterpretedXMLPrinter.class);
-    static final String PROPERTY_ENABLED = DebuggerPlugin.PROPERTY_PREFIX + "interpretedAllowed";
+    public static final SystemProperty<Boolean> ENABLED = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey(DebuggerPlugin.PROPERTY_PREFIX + "interpretedAllowed")
+        .setDefaultValue(Boolean.FALSE)
+        .setDynamic(true)
+        .setPlugin(DebuggerPlugin.PLUGIN_NAME)
+        .addListener(InterpretedXMLPrinter::enabled)
+        .build();
+    private static InterpretedXMLPrinter instance;
     private final DebuggerPlugin plugin;
 
     InterpretedXMLPrinter(final DebuggerPlugin plugin) {
-
         this.plugin = plugin;
+        InterpretedXMLPrinter.instance = this;
     }
 
     @Override
@@ -61,21 +68,13 @@ public class InterpretedXMLPrinter implements PacketInterceptor {
         }
     }
 
-    public boolean isEnabled() {
-        return JiveGlobals.getBooleanProperty(PROPERTY_ENABLED);
-    }
-
-    public void setEnabled(final boolean enabled) {
-        JiveGlobals.setProperty(PROPERTY_ENABLED, Boolean.toString(enabled));
-    }
-
-    void wasEnabled(final boolean enabled) {
+    static void enabled(final boolean enabled) {
         if (enabled) {
             LOGGER.info("Interpreted XML logger enabled");
-            InterceptorManager.getInstance().addInterceptor(this);
+            InterceptorManager.getInstance().addInterceptor(instance);
         } else {
             LOGGER.info("Interpreted XML logger disabled");
-            InterceptorManager.getInstance().removeInterceptor(this);
+            InterceptorManager.getInstance().removeInterceptor(instance);
         }
     }
 

@@ -28,7 +28,7 @@ public class ConfigServlet extends HttpServlet {
         request.setAttribute("ssl", plugin.getOldPortFilter().isEnabled());
         request.setAttribute("extcomp", plugin.getComponentPortFilter().isEnabled());
         request.setAttribute("cm", plugin.getMultiplexerPortFilter().isEnabled());
-        request.setAttribute("interpreted", plugin.getInterpretedPrinter().isEnabled());
+        request.setAttribute("interpreted", InterpretedXMLPrinter.ENABLED.getValue());
         request.setAttribute("logWhitespace", DebuggerPlugin.LOG_WHITESPACE.getValue());
         request.setAttribute("loggingToStdOut", DebuggerPlugin.LOG_TO_STDOUT.getValue());
         request.setAttribute("loggingToFile", DebuggerPlugin.LOG_TO_FILE.getValue());
@@ -51,7 +51,7 @@ public class ConfigServlet extends HttpServlet {
         plugin.getOldPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "ssl"));
         plugin.getComponentPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "extcomp"));
         plugin.getMultiplexerPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "cm"));
-        plugin.getInterpretedPrinter().setEnabled(ParamUtils.getBooleanParameter(request, "interpreted"));
+        InterpretedXMLPrinter.ENABLED.setValue(ParamUtils.getBooleanParameter(request, "interpreted"));
         DebuggerPlugin.LOG_WHITESPACE.setValue(ParamUtils.getBooleanParameter(request, "logWhitespace"));
         DebuggerPlugin.LOG_TO_STDOUT.setValue(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
         DebuggerPlugin.LOG_TO_FILE.setValue(ParamUtils.getBooleanParameter(request, "loggingToFile"));
