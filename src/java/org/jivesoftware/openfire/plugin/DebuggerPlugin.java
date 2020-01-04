@@ -75,9 +75,9 @@ public class DebuggerPlugin implements Plugin {
         .build();
 
     public DebuggerPlugin() {
-        logWhitespace = logWhitespaceProperty.getValue();
-        loggingToFile = loggingToFileProperty.getValue();
         loggingToStdOut = loggingToStdOutProperty.getValue();
+        loggingToFile = loggingToFileProperty.getValue();
+        logWhitespace = logWhitespaceProperty.getValue();
         defaultPortFilter = new RawPrintFilter(this, "C2S");
         oldPortFilter = new RawPrintFilter(this, "SSL");
         componentPortFilter = new RawPrintFilter(this, "ExComp");
