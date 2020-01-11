@@ -17,10 +17,6 @@
 package org.jivesoftware.openfire.plugin;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
@@ -28,9 +24,7 @@ import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.container.PluginManagerListener;
 import org.jivesoftware.openfire.spi.ConnectionManagerImpl;
 import org.jivesoftware.openfire.spi.ConnectionType;
-import org.jivesoftware.util.JiveGlobals;
-import org.jivesoftware.util.PropertyEventDispatcher;
-import org.jivesoftware.util.PropertyEventListener;
+import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,35 +36,52 @@ import org.slf4j.LoggerFactory;
  *
  * @author Gaston Dombiak
  */
-public class DebuggerPlugin implements Plugin, PropertyEventListener {
+public class DebuggerPlugin implements Plugin {
 
+    static final String PLUGIN_NAME = "XML Debugger Plugin"; // Exact match to plugin.xml
     private static final Logger LOGGER = LoggerFactory.getLogger(DebuggerPlugin.class);
 
     static final String PROPERTY_PREFIX = "plugin.xmldebugger.";
-    private static final String PROPERTY_LOG_TO_STDOUT_ENABLED = PROPERTY_PREFIX + "logToStdOut";
-    private static final String PROPERTY_LOG_TO_FILE_ENABLED = PROPERTY_PREFIX + "logToFile";
-    private static final String PROPERTY_LOG_WHITESPACE = PROPERTY_PREFIX + "logWhitespace";
     private static DebuggerPlugin instance;
-
 
     private final RawPrintFilter defaultPortFilter;
     private final RawPrintFilter oldPortFilter;
     private final RawPrintFilter componentPortFilter;
     private final RawPrintFilter multiplexerPortFilter;
-    private final Set<RawPrintFilter> rawPrintFilters;
     private final InterpretedXMLPrinter interpretedPrinter;
     private boolean logWhitespace;
+    private final SystemProperty<Boolean> logWhitespaceProperty = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey(PROPERTY_PREFIX + "logWhitespace")
+        .setDefaultValue(Boolean.FALSE)
+        .setDynamic(true)
+        .setPlugin(PLUGIN_NAME)
+        .addListener(enabled -> DebuggerPlugin.this.logWhitespace = enabled)
+        .build();
     private boolean loggingToStdOut;
+    private final SystemProperty<Boolean> loggingToStdOutProperty = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey(PROPERTY_PREFIX + "logToStdOut")
+        .setDefaultValue(Boolean.TRUE)
+        .setDynamic(true)
+        .setPlugin(PLUGIN_NAME)
+        .addListener(enabled -> DebuggerPlugin.this.loggingToStdOut = enabled)
+        .build();
     private boolean loggingToFile;
+    private final SystemProperty<Boolean> loggingToFileProperty = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey(PROPERTY_PREFIX + "logToFile")
+        .setDefaultValue(Boolean.FALSE)
+        .setDynamic(true)
+        .setPlugin(PLUGIN_NAME)
+        .addListener(enabled -> DebuggerPlugin.this.loggingToFile = enabled)
+        .build();
 
     public DebuggerPlugin() {
-        loggingToStdOut = JiveGlobals.getBooleanProperty(PROPERTY_LOG_TO_STDOUT_ENABLED, true);
-        loggingToFile = JiveGlobals.getBooleanProperty(PROPERTY_LOG_TO_FILE_ENABLED, false);
+        loggingToStdOut = loggingToStdOutProperty.getValue();
+        loggingToFile = loggingToFileProperty.getValue();
+        logWhitespace = logWhitespaceProperty.getValue();
         defaultPortFilter = new RawPrintFilter(this, "C2S");
         oldPortFilter = new RawPrintFilter(this, "SSL");
         componentPortFilter = new RawPrintFilter(this, "ExComp");
         multiplexerPortFilter = new RawPrintFilter(this, "CM");
-        rawPrintFilters = new HashSet<>(Arrays.asList(defaultPortFilter, oldPortFilter, componentPortFilter, multiplexerPortFilter));
         interpretedPrinter = new InterpretedXMLPrinter(this);
         setInstance(this);
     }
@@ -103,16 +114,12 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         componentPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.COMPONENT, false));
         multiplexerPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.CONNECTION_MANAGER, false));
 
-        interpretedPrinter.wasEnabled(interpretedPrinter.isEnabled());
+        interpretedPrinter.setEnabled(interpretedPrinter.isEnabled());
 
-        // Listen to property events
-        PropertyEventDispatcher.addListener(this);
         LOGGER.info("Plugin initialisation complete");
     }
 
     public void destroyPlugin() {
-        // Stop listening to property events
-        PropertyEventDispatcher.removeListener(this);
         // Remove filter from filter chain builder
         final ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
 
@@ -128,7 +135,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         multiplexerPortFilter.shutdown();
 
         // Remove the packet interceptor that prints interpreted XML
-        interpretedPrinter.wasEnabled(false);
+        interpretedPrinter.shutdown();
 
         LOGGER.info("Plugin destruction complete");
     }
@@ -153,59 +160,12 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
         return interpretedPrinter;
     }
 
-    public void propertySet(final String property, final Map<String, Object> params) {
-        final boolean enabled = Boolean.parseBoolean(String.valueOf(params.get("value")));
-        enableOrDisableLogger(property, enabled);
-    }
-
-    public void propertyDeleted(final String property, final Map<String, Object> params) {
-        enableOrDisableLogger(property, false);
-    }
-
-    private void enableOrDisableLogger(final String property, final boolean enabled) {
-        if (property.startsWith(PROPERTY_PREFIX)) {
-            switch (property) {
-                case InterpretedXMLPrinter.PROPERTY_ENABLED:
-                    interpretedPrinter.wasEnabled(enabled);
-                    break;
-                case PROPERTY_LOG_TO_STDOUT_ENABLED:
-                    loggingToStdOut = enabled;
-                    LOGGER.info("STDOUT logger {}", enabled ? "enabled" : "disabled");
-                    break;
-                case PROPERTY_LOG_TO_FILE_ENABLED:
-                    loggingToFile = enabled;
-                    LOGGER.info("file logger {}", enabled ? "enabled" : "disabled");
-                    break;
-                case PROPERTY_LOG_WHITESPACE:
-                    logWhitespace = enabled;
-                    LOGGER.info("whitespace logging {}", enabled ? "enabled" : "disabled");
-                    break;
-                default:
-                    // Is it one of the RawPrintFilters?
-                    for (final RawPrintFilter filter : rawPrintFilters) {
-                        if (filter.getPropertyName().equals(property)) {
-                            filter.wasEnabled(enabled);
-                            break;
-                        }
-                    }
-            }
-        }
-    }
-
-    public void xmlPropertySet(final String property, final Map<String, Object> params) {
-        // Do nothing
-    }
-
-    public void xmlPropertyDeleted(final String property, final Map<String, Object> params) {
-        // Do nothing
-    }
-
     public boolean isLoggingToStdOut() {
         return loggingToStdOut;
     }
 
     public void setLoggingToStdOut(final boolean enabled) {
-        JiveGlobals.setProperty(PROPERTY_LOG_TO_STDOUT_ENABLED, String.valueOf(enabled));
+        loggingToStdOutProperty.setValue(enabled);
     }
 
     public boolean isLoggingToFile() {
@@ -213,7 +173,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     }
 
     public void setLoggingToFile(final boolean enabled) {
-        JiveGlobals.setProperty(PROPERTY_LOG_TO_FILE_ENABLED, String.valueOf(enabled));
+        loggingToFileProperty.setValue(enabled);
     }
 
     void log(final String messageToLog) {
@@ -226,7 +186,7 @@ public class DebuggerPlugin implements Plugin, PropertyEventListener {
     }
 
     public void setLogWhitespace(final boolean enabled) {
-        JiveGlobals.setProperty(PROPERTY_LOG_WHITESPACE, String.valueOf(enabled));
+        logWhitespaceProperty.setValue(enabled);
     }
 
     public boolean isLoggingWhitespace() {
