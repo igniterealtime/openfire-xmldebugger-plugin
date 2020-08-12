@@ -127,8 +127,8 @@ public class RawPrintFilter extends IoFilterAdapter {
 
     @Override
     public void messageSent(final NextFilter nextFilter, final IoSession session, final WriteRequest writeRequest) throws Exception {
-        if (enabled && writeRequest.getMessage() instanceof IoBuffer) {
-            logSentBuffer(session, (IoBuffer) writeRequest.getMessage());
+        if (enabled && writeRequest.getOriginalMessage() instanceof IoBuffer) {
+            logSentBuffer(session, (IoBuffer) writeRequest.getOriginalMessage());
         }
         // Pass the message to the next filter
         super.messageSent(nextFilter, session, writeRequest);
