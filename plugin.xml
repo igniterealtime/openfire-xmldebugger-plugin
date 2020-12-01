@@ -9,7 +9,7 @@
     <description>${project.description}</description>
     <author>Ignite Realtime</author>
     <version>${project.version}</version>
-    <date>01/11/2020</date>
+    <date>12/01/2020</date>
     <minServerVersion>4.5.0</minServerVersion>
     <minJavaVersion>1.8</minJavaVersion>
     <csrfProtectionEnabled>true</csrfProtectionEnabled>
