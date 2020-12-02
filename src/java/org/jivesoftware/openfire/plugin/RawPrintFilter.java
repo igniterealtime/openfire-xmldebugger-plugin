@@ -21,6 +21,9 @@ import static org.jivesoftware.openfire.spi.ConnectionManagerImpl.TLS_FILTER_NAM
 
 import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -122,7 +125,8 @@ public class RawPrintFilter extends IoFilterAdapter {
     }
 
     private String messagePrefix(final IoSession session, final String messageType) {
-        return String.format("%s %-16s - %s - (%11s)", prefix, session.getRemoteAddress() == null ? "" : session.getRemoteAddress(), messageType, session.hashCode());
+        String nowAsString = ZonedDateTime.now( ZoneOffset.UTC ).format( DateTimeFormatter.ISO_INSTANT );
+        return String.format("%s - %s %-16s - %s - (%11s)", nowAsString, prefix, session.getRemoteAddress() == null ? "" : session.getRemoteAddress(), messageType, session.hashCode());
     }
 
     @Override
