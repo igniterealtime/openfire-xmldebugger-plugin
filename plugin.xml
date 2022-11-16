@@ -23,5 +23,14 @@
                   description="Edit XML debugger plugin properties" />
          </sidebar>
       </tab>
+
+      <tab id="tab-session">
+         <sidebar id="sidebar-tools">
+            <item id="stanza-sender"
+                  name="Raw XMPP sender"
+                  url="stanza-sender.jsp"
+                  description="Compose and send raw XMPP" />
+         </sidebar>
+      </tab>
    </adminconsole>
 </plugin>
