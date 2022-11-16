@@ -9,8 +9,18 @@
         <servlet-class>org.jivesoftware.openfire.plugin.ConfigServlet</servlet-class>
     </servlet>
 
+    <servlet>
+        <servlet-name>StanzaSenderServlet</servlet-name>
+        <servlet-class>org.jivesoftware.openfire.plugin.StanzaSenderServlet</servlet-class>
+    </servlet>
+
     <servlet-mapping>
         <servlet-name>ConfigServlet</servlet-name>
         <url-pattern>/debugger-conf.jsp</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>StanzaSenderServlet</servlet-name>
+        <url-pattern>/stanza-sender.jsp</url-pattern>
     </servlet-mapping>
 </web-app>
