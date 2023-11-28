@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2008 Jive Software. All rights reserved.
+ * Copyright (C) 2005-2008 Jive Software. 2023 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,19 @@
 
 package org.jivesoftware.openfire.plugin;
 
-import java.io.File;
-
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.container.PluginManagerListener;
-import org.jivesoftware.openfire.spi.ConnectionManagerImpl;
-import org.jivesoftware.openfire.spi.ConnectionType;
+import org.jivesoftware.openfire.spi.*;
 import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Debugger plugin that prints XML traffic to stdout. By default it will only print
@@ -44,45 +46,38 @@ public class DebuggerPlugin implements Plugin {
     static final String PROPERTY_PREFIX = "plugin.xmldebugger.";
     private static DebuggerPlugin instance;
 
-    private final RawPrintFilter defaultPortFilter;
-    private final RawPrintFilter oldPortFilter;
-    private final RawPrintFilter componentPortFilter;
-    private final RawPrintFilter multiplexerPortFilter;
+    private final RawPrintChannelHandlerFactory defaultPortFilter;
+    private final RawPrintChannelHandlerFactory oldPortFilter;
+    private final RawPrintChannelHandlerFactory s2sPortFilter;
+    private final RawPrintChannelHandlerFactory componentPortFilter;
+    private final RawPrintChannelHandlerFactory multiplexerPortFilter;
     private final InterpretedXMLPrinter interpretedPrinter;
-    private boolean logWhitespace;
-    private final SystemProperty<Boolean> logWhitespaceProperty = SystemProperty.Builder.ofType(Boolean.class)
+    public static final SystemProperty<Boolean> logWhitespaceProperty = SystemProperty.Builder.ofType(Boolean.class)
         .setKey(PROPERTY_PREFIX + "logWhitespace")
         .setDefaultValue(Boolean.FALSE)
         .setDynamic(true)
         .setPlugin(PLUGIN_NAME)
-        .addListener(enabled -> DebuggerPlugin.this.logWhitespace = enabled)
         .build();
-    private boolean loggingToStdOut;
-    private final SystemProperty<Boolean> loggingToStdOutProperty = SystemProperty.Builder.ofType(Boolean.class)
+    public static final SystemProperty<Boolean> loggingToStdOutProperty = SystemProperty.Builder.ofType(Boolean.class)
         .setKey(PROPERTY_PREFIX + "logToStdOut")
         .setDefaultValue(Boolean.TRUE)
         .setDynamic(true)
         .setPlugin(PLUGIN_NAME)
-        .addListener(enabled -> DebuggerPlugin.this.loggingToStdOut = enabled)
         .build();
-    private boolean loggingToFile;
-    private final SystemProperty<Boolean> loggingToFileProperty = SystemProperty.Builder.ofType(Boolean.class)
+    public static final SystemProperty<Boolean> loggingToFileProperty = SystemProperty.Builder.ofType(Boolean.class)
         .setKey(PROPERTY_PREFIX + "logToFile")
         .setDefaultValue(Boolean.FALSE)
         .setDynamic(true)
         .setPlugin(PLUGIN_NAME)
-        .addListener(enabled -> DebuggerPlugin.this.loggingToFile = enabled)
         .build();
 
     public DebuggerPlugin() {
-        loggingToStdOut = loggingToStdOutProperty.getValue();
-        loggingToFile = loggingToFileProperty.getValue();
-        logWhitespace = logWhitespaceProperty.getValue();
-        defaultPortFilter = new RawPrintFilter(this, "C2S");
-        oldPortFilter = new RawPrintFilter(this, "SSL");
-        componentPortFilter = new RawPrintFilter(this, "ExComp");
-        multiplexerPortFilter = new RawPrintFilter(this, "CM");
-        interpretedPrinter = new InterpretedXMLPrinter(this);
+        defaultPortFilter = new RawPrintChannelHandlerFactory( "C2S-STARTTLS");
+        oldPortFilter = new RawPrintChannelHandlerFactory( "C2S-DIRECTTLS");
+        s2sPortFilter = new RawPrintChannelHandlerFactory( "S2S-STARTTLS");
+        componentPortFilter = new RawPrintChannelHandlerFactory("ExComp-STARTTLS");
+        multiplexerPortFilter = new RawPrintChannelHandlerFactory("CM-STARTTLS");
+        interpretedPrinter = new InterpretedXMLPrinter();
         setInstance(this);
     }
 
@@ -105,54 +100,76 @@ public class DebuggerPlugin implements Plugin {
         });
     }
 
+    private final List<ConnectionListener.SocketAcceptorEventListener> eventListeners = new ArrayList<>();
     private void addInterceptors() {
-        // Add filter to filter chain builder
-        final ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
-
-        defaultPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.SOCKET_C2S, false));
-        oldPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.SOCKET_C2S, true));
-        componentPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.COMPONENT, false));
-        multiplexerPortFilter.addFilterToChain(connManager.getSocketAcceptor(ConnectionType.CONNECTION_MANAGER, false));
+        eventListeners.add( addInterceptorAndListener(ConnectionType.SOCKET_C2S, false, defaultPortFilter) );
+        eventListeners.add( addInterceptorAndListener(ConnectionType.SOCKET_C2S, true, oldPortFilter) );
+        eventListeners.add( addInterceptorAndListener(ConnectionType.SOCKET_S2S, false, s2sPortFilter) );
+        eventListeners.add( addInterceptorAndListener(ConnectionType.COMPONENT, false, componentPortFilter) );
+        eventListeners.add( addInterceptorAndListener(ConnectionType.CONNECTION_MANAGER, false, multiplexerPortFilter) );
 
         interpretedPrinter.setEnabled(interpretedPrinter.isEnabled());
 
         LOGGER.info("Plugin initialisation complete");
     }
 
-    public void destroyPlugin() {
-        // Remove filter from filter chain builder
+    private static ConnectionListener.SocketAcceptorEventListener addInterceptorAndListener(ConnectionType type, boolean directTLS, RawPrintChannelHandlerFactory handler) {
         final ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
+        final ConnectionListener listener = connManager.getListener(type, directTLS);
+        final ConnectionListener.SocketAcceptorEventListener eventListener = new ConnectionListener.SocketAcceptorEventListener() {
+            @Override
+            public void acceptorStarting(ConnectionAcceptor connectionAcceptor) {
+                if (connectionAcceptor instanceof NettyConnectionAcceptor) {
+                    LOGGER.info("Re-registering channel handler on {}", connectionAcceptor);
+                    ((NettyConnectionAcceptor) connectionAcceptor).addChannelHandler(handler);
+                }
+            }
 
-        defaultPortFilter.removeFilterFromChain(connManager.getSocketAcceptor(ConnectionType.SOCKET_C2S, false));
-        oldPortFilter.removeFilterFromChain(connManager.getSocketAcceptor(ConnectionType.SOCKET_C2S, true));
-        componentPortFilter.removeFilterFromChain(connManager.getSocketAcceptor(ConnectionType.COMPONENT, false));
-        multiplexerPortFilter.removeFilterFromChain(connManager.getSocketAcceptor(ConnectionType.CONNECTION_MANAGER, false));
+            @Override
+            public void acceptorStopping(ConnectionAcceptor connectionAcceptor) {}
+        };
+        listener.add(eventListener);
+        LOGGER.info("Registering channel handler on {}", listener.getConnectionAcceptor());
+        ((NettyConnectionAcceptor) listener.getConnectionAcceptor()).addChannelHandler(handler);
+        return eventListener;
+    }
 
-        // Remove the filters from existing sessions
-        defaultPortFilter.shutdown();
-        oldPortFilter.shutdown();
-        componentPortFilter.shutdown();
-        multiplexerPortFilter.shutdown();
+    private static void removeInterceptorAndListener(ConnectionType type, boolean directTLS, RawPrintChannelHandlerFactory handler, List<ConnectionListener.SocketAcceptorEventListener> eventListeners) {
+        final ConnectionManagerImpl connManager = (ConnectionManagerImpl) XMPPServer.getInstance().getConnectionManager();
+        final ConnectionListener listener = connManager.getListener(type, directTLS);
 
+        eventListeners.forEach(listener::remove); // One of these should match, the others are no-ops.
+        LOGGER.info("Removing channel handler from {}", listener.getConnectionAcceptor());
+
+        ((NettyConnectionAcceptor) listener.getConnectionAcceptor()).removeChannelHandler(handler);
+    }
+
+    public void destroyPlugin() {
+        removeInterceptorAndListener(ConnectionType.SOCKET_C2S, false, defaultPortFilter, eventListeners);
+        removeInterceptorAndListener(ConnectionType.SOCKET_C2S, true, oldPortFilter, eventListeners);
+        removeInterceptorAndListener(ConnectionType.SOCKET_S2S, false, s2sPortFilter, eventListeners);
+        removeInterceptorAndListener(ConnectionType.COMPONENT, false, componentPortFilter, eventListeners);
+        removeInterceptorAndListener(ConnectionType.CONNECTION_MANAGER, false, multiplexerPortFilter, eventListeners);
+        eventListeners.clear();
         // Remove the packet interceptor that prints interpreted XML
         interpretedPrinter.shutdown();
 
         LOGGER.info("Plugin destruction complete");
     }
 
-    public RawPrintFilter getDefaultPortFilter() {
+    public RawPrintChannelHandlerFactory getDefaultPortFilter() {
         return defaultPortFilter;
     }
 
-    public RawPrintFilter getOldPortFilter() {
+    public RawPrintChannelHandlerFactory getOldPortFilter() {
         return oldPortFilter;
     }
 
-    public RawPrintFilter getComponentPortFilter() {
+    public RawPrintChannelHandlerFactory getComponentPortFilter() {
         return componentPortFilter;
     }
 
-    public RawPrintFilter getMultiplexerPortFilter() {
+    public RawPrintChannelHandlerFactory getMultiplexerPortFilter() {
         return multiplexerPortFilter;
     }
 
@@ -160,36 +177,12 @@ public class DebuggerPlugin implements Plugin {
         return interpretedPrinter;
     }
 
-    public boolean isLoggingToStdOut() {
-        return loggingToStdOut;
-    }
-
-    public void setLoggingToStdOut(final boolean enabled) {
-        loggingToStdOutProperty.setValue(enabled);
-    }
-
-    public boolean isLoggingToFile() {
-        return loggingToFile;
-    }
-
-    public void setLoggingToFile(final boolean enabled) {
-        loggingToFileProperty.setValue(enabled);
-    }
-
-    void log(final String messageToLog) {
-        if (loggingToStdOut) {
+    public static void log(final String messageToLog) {
+        if (loggingToStdOutProperty.getValue()) {
             System.out.println(messageToLog);
         }
-        if (loggingToFile) {
+        if (loggingToFileProperty.getValue()) {
             LOGGER.info(messageToLog);
         }
-    }
-
-    public void setLogWhitespace(final boolean enabled) {
-        logWhitespaceProperty.setValue(enabled);
-    }
-
-    public boolean isLoggingWhitespace() {
-        return logWhitespace;
     }
 }
