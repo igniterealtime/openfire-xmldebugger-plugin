@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2008 Jive Software. All rights reserved.
+ * Copyright (C) 2005-2008 Jive Software. 2023 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,12 +46,7 @@ public class InterpretedXMLPrinter implements PacketInterceptor {
         .setPlugin(DebuggerPlugin.PLUGIN_NAME)
         .addListener(this::enabled)
         .build();
-    private final DebuggerPlugin plugin;
     private boolean enabled;
-
-    InterpretedXMLPrinter(final DebuggerPlugin plugin) {
-        this.plugin = plugin;
-    }
 
     @Override
     public void interceptPacket(final Packet packet, final Session session, final boolean incoming, final boolean processed) {
@@ -62,8 +57,8 @@ public class InterpretedXMLPrinter implements PacketInterceptor {
             } catch (final UnknownHostException ignored) {
                 hostAddress = "";
             }
-            // Pad this out so it aligns with the RawPrintFilter output
-            plugin.log(String.format("INT %-16s - %s - (%11s): %s", hostAddress, incoming ? "RECV" : "SENT", session.getStreamID(), packet.toXML()));
+            // Pad this out so it aligns with the RawPrintChannelHandlerFactory output
+            DebuggerPlugin.log(String.format("INT %-16s - %s - (%11s): %s", hostAddress, incoming ? "RECV" : "SENT", session.getStreamID(), packet.toXML()));
         }
     }
 

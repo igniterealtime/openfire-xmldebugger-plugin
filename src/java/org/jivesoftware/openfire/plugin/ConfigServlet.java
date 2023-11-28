@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2005-2008 Jive Software. 2023 Ignite Realtime Foundation. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jivesoftware.openfire.plugin;
 
 import java.io.IOException;
@@ -29,9 +44,9 @@ public class ConfigServlet extends HttpServlet {
         request.setAttribute("extcomp", plugin.getComponentPortFilter().isEnabled());
         request.setAttribute("cm", plugin.getMultiplexerPortFilter().isEnabled());
         request.setAttribute("interpreted", plugin.getInterpretedPrinter().isEnabled());
-        request.setAttribute("logWhitespace", plugin.isLoggingWhitespace());
-        request.setAttribute("loggingToStdOut", plugin.isLoggingToStdOut());
-        request.setAttribute("loggingToFile", plugin.isLoggingToFile());
+        request.setAttribute("logWhitespace", DebuggerPlugin.logWhitespaceProperty.getValue());
+        request.setAttribute("loggingToStdOut", DebuggerPlugin.loggingToStdOutProperty.getValue());
+        request.setAttribute("loggingToFile", DebuggerPlugin.loggingToFileProperty.getValue());
 
         request.getRequestDispatcher("debugger-configuration.jsp").forward(request, response);
     }
@@ -52,9 +67,9 @@ public class ConfigServlet extends HttpServlet {
         plugin.getComponentPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "extcomp"));
         plugin.getMultiplexerPortFilter().setEnabled(ParamUtils.getBooleanParameter(request, "cm"));
         plugin.getInterpretedPrinter().setEnabled(ParamUtils.getBooleanParameter(request, "interpreted"));
-        plugin.setLogWhitespace(ParamUtils.getBooleanParameter(request, "logWhitespace"));
-        plugin.setLoggingToStdOut(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
-        plugin.setLoggingToFile(ParamUtils.getBooleanParameter(request, "loggingToFile"));
+        DebuggerPlugin.logWhitespaceProperty.setValue(ParamUtils.getBooleanParameter(request, "logWhitespace"));
+        DebuggerPlugin.loggingToStdOutProperty.setValue(ParamUtils.getBooleanParameter(request, "loggingToStdOut"));
+        DebuggerPlugin.loggingToFileProperty.setValue(ParamUtils.getBooleanParameter(request, "loggingToFile"));
 
         session.setAttribute(FlashMessageTag.SUCCESS_MESSAGE_KEY, "Logging settings updated");
         response.sendRedirect(request.getRequestURI());

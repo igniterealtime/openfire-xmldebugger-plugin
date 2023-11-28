@@ -48,7 +48,7 @@
             </td>
             <td width="99%">
                 <label for="rb02">
-                    Client (old SSL port)
+                    Client (Direct TLS port)
                 </label>
             </td>
         </tr>
