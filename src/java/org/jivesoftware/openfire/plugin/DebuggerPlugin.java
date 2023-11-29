@@ -102,11 +102,22 @@ public class DebuggerPlugin implements Plugin {
 
     private final List<ConnectionListener.SocketAcceptorEventListener> eventListeners = new ArrayList<>();
     private void addInterceptors() {
-        eventListeners.add( addInterceptorAndListener(ConnectionType.SOCKET_C2S, false, defaultPortFilter) );
-        eventListeners.add( addInterceptorAndListener(ConnectionType.SOCKET_C2S, true, oldPortFilter) );
-        eventListeners.add( addInterceptorAndListener(ConnectionType.SOCKET_S2S, false, s2sPortFilter) );
-        eventListeners.add( addInterceptorAndListener(ConnectionType.COMPONENT, false, componentPortFilter) );
-        eventListeners.add( addInterceptorAndListener(ConnectionType.CONNECTION_MANAGER, false, multiplexerPortFilter) );
+        ConnectionListener.SocketAcceptorEventListener listener;
+
+        listener = addInterceptorAndListener(ConnectionType.SOCKET_C2S, false, defaultPortFilter);
+        if (listener != null) { eventListeners.add(listener); }
+
+        listener = addInterceptorAndListener(ConnectionType.SOCKET_C2S, true, oldPortFilter);
+        if (listener != null) { eventListeners.add(listener); }
+
+        listener = addInterceptorAndListener(ConnectionType.SOCKET_S2S, false, s2sPortFilter);
+        if (listener != null) { eventListeners.add(listener); }
+
+        listener = addInterceptorAndListener(ConnectionType.COMPONENT, false, componentPortFilter);
+        if (listener != null) { eventListeners.add(listener); }
+
+        listener = addInterceptorAndListener(ConnectionType.CONNECTION_MANAGER, false, multiplexerPortFilter);
+        if (listener != null) { eventListeners.add(listener); }
 
         interpretedPrinter.setEnabled(interpretedPrinter.isEnabled());
 
@@ -128,10 +139,15 @@ public class DebuggerPlugin implements Plugin {
             @Override
             public void acceptorStopping(ConnectionAcceptor connectionAcceptor) {}
         };
-        listener.add(eventListener);
-        LOGGER.info("Registering channel handler on {}", listener.getConnectionAcceptor());
-        ((NettyConnectionAcceptor) listener.getConnectionAcceptor()).addChannelHandler(handler);
-        return eventListener;
+        if (!(listener.getConnectionAcceptor() instanceof NettyConnectionAcceptor)) {
+            listener.add(eventListener);
+            LOGGER.info("Registering channel handler on {}", listener.getConnectionAcceptor());
+            ((NettyConnectionAcceptor) listener.getConnectionAcceptor()).addChannelHandler(handler);
+            return eventListener;
+        } else {
+            LOGGER.warn("Unable to register channel handler for connection type {} (direct TLS: {}): The connection acceptor is not an instance of NettyConnectionAcceptor: {}", type, directTLS, listener.getConnectionAcceptor());
+            return null;
+        }
     }
 
     private static void removeInterceptorAndListener(ConnectionType type, boolean directTLS, RawPrintChannelHandlerFactory handler, List<ConnectionListener.SocketAcceptorEventListener> eventListeners) {
