@@ -8,12 +8,40 @@
 <head>
     <title>XML Debugger Stanza Sending Tool</title>
     <meta name="pageID" content="stanza-sender"/>
+    <style>
+        .send-pending-indicator {
+            display: none;
+            margin-left: 0.5rem;
+            align-items: center;
+            gap: 0.35rem;
+            color: #444;
+        }
+
+        .send-pending-indicator.active {
+            display: inline-flex;
+        }
+
+        .send-pending-spinner {
+            width: 0.9rem;
+            height: 0.9rem;
+            border: 2px solid #cfd5de;
+            border-top-color: #3572b0;
+            border-radius: 50%;
+            animation: send-pending-spin 0.8s linear infinite;
+        }
+
+        @keyframes send-pending-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 </head>
 <body>
 
 <admin:FlashMessage/>
 
-<form method="post">
+<form id="stanza-form" method="post">
     <input name="csrf" value="<c:out value="${csrf}"/>" type="hidden">
     <admin:contentBox title="Send XMPP stanza">
 
@@ -79,8 +107,51 @@
         </tbody>
         </table>
     </admin:contentBox>
-    <input type="submit" name="send" value="Send">
+    <input id="send-button" type="submit" name="send" value="Send">
+    <span id="send-pending-indicator" class="send-pending-indicator" aria-live="polite">
+        <span class="send-pending-spinner" aria-hidden="true"></span>
+        Sending stanza...
+    </span>
     <input type="submit" name="cancel" value="<fmt:message key="global.cancel" />">
 </form>
+<script>
+    (function () {
+        var form = document.getElementById('stanza-form');
+        if (!form) {
+            return;
+        }
+
+        var lastClickedSubmitName = null;
+        var submitButtons = form.querySelectorAll('input[type="submit"]');
+
+        submitButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                lastClickedSubmitName = button.name || null;
+            });
+        });
+
+        form.addEventListener('submit', function (event) {
+            var submitterName = (event.submitter && event.submitter.name) ? event.submitter.name : lastClickedSubmitName;
+            if (submitterName !== 'send') {
+                return;
+            }
+
+            if (form.dataset.pendingSend === 'true') {
+                event.preventDefault();
+                return;
+            }
+
+            form.dataset.pendingSend = 'true';
+            submitButtons.forEach(function (button) {
+                button.disabled = true;
+            });
+
+            var indicator = document.getElementById('send-pending-indicator');
+            if (indicator) {
+                indicator.classList.add('active');
+            }
+        });
+    })();
+</script>
 </body>
 </html>
