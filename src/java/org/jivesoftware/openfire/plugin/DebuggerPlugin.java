@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2008 Jive Software. 2023 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2005-2008 Jive Software. 2023-2026 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -139,7 +138,7 @@ public class DebuggerPlugin implements Plugin {
             @Override
             public void acceptorStopping(ConnectionAcceptor connectionAcceptor) {}
         };
-        if (!(listener.getConnectionAcceptor() instanceof NettyConnectionAcceptor)) {
+        if (listener.getConnectionAcceptor() instanceof NettyConnectionAcceptor) {
             listener.add(eventListener);
             LOGGER.info("Registering channel handler on {}", listener.getConnectionAcceptor());
             ((NettyConnectionAcceptor) listener.getConnectionAcceptor()).addChannelHandler(handler);
