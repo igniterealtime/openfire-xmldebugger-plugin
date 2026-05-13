@@ -21,6 +21,21 @@
         <tbody>
         <tr valign="top">
             <td width="1%" nowrap>
+                <label for="connection">
+                    Inject via
+                </label>
+            </td>
+            <td width="99%">
+                <select id="connection" name="connection" style="width: 100%;">
+                    <option value="router" <c:if test="${empty sessionScope.connection or sessionScope.connection eq 'router'}">selected</c:if>>Default packet router</option>
+                    <c:forEach var="connection" items="${connections}">
+                        <option value="<c:out value='${connection.value}'/>" <c:if test="${sessionScope.connection eq connection.value}">selected</c:if>><c:out value="${connection.label}"/></option>
+                    </c:forEach>
+                </select>
+            </td>
+        </tr>
+        <tr valign="top">
+            <td width="1%" nowrap>
                 <label for="stanza">
                     Stanza to Send
                 </label>
@@ -47,5 +62,5 @@
     <input type="submit" name="send" value="Send">
     <input type="submit" name="cancel" value="<fmt:message key="global.cancel" />">
 </form>
-</body
+</body>
 </html>
