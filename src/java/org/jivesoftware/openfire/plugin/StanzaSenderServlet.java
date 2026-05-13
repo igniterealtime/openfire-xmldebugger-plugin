@@ -82,8 +82,25 @@ public class StanzaSenderServlet extends HttpServlet
 
         final String stanza = ParamUtils.getStringParameter(request, "stanza", "").trim();
         final String connection = ParamUtils.getStringParameter(request, "connection", DEFAULT_CONNECTION_VALUE).trim();
+        final String template = ParamUtils.getStringParameter(request, "template", "").trim();
         session.setAttribute("stanza", stanza);
         session.setAttribute("connection", connection);
+
+        if (request.getParameter("insertTemplate") != null) {
+            if (template.isEmpty()) {
+                session.setAttribute(FlashMessageTag.WARNING_MESSAGE_KEY, "Please select a template first.");
+            } else {
+                final String templatedStanza = createTemplate(template, XMPPServer.getInstance().getServerInfo().getXMPPDomain());
+                if (templatedStanza == null) {
+                    session.setAttribute(FlashMessageTag.ERROR_MESSAGE_KEY, "Unknown template selected.");
+                } else {
+                    session.setAttribute("stanza", templatedStanza);
+                    session.removeAttribute("result");
+                }
+            }
+            response.sendRedirect(request.getRequestURI());
+            return;
+        }
 
         if (stanza.isEmpty()) {
             session.setAttribute(FlashMessageTag.ERROR_MESSAGE_KEY, "Please provide input.");
@@ -181,6 +198,41 @@ public class StanzaSenderServlet extends HttpServlet
         }
 
         response.sendRedirect(request.getRequestURI());
+    }
+
+    /**
+     * Builds a frequently-used stanza template.
+     *
+     * @param templateName unique template key selected in the UI.
+     * @param xmppDomain the local XMPP domain of this server.
+     * @return stanza XML for the selected template, or {@code null} when unknown.
+     */
+    private static String createTemplate(final String templateName, final String xmppDomain) {
+        final String bareJid = "user@" + xmppDomain;
+        final String fullJid = bareJid + "/resource";
+
+        switch (templateName) {
+            case "presence-available":
+                return "<presence to='" + fullJid + "'/>";
+            case "message-chat":
+                return "<message to='" + bareJid + "' type='chat'>\n"
+                    + "    <body>Hello from Openfire admin console.</body>\n"
+                    + "</message>";
+            case "iq-ping":
+                return "<iq to='" + fullJid + "' type='get' id='ping1'>\n"
+                    + "    <ping xmlns='urn:xmpp:ping'/>\n"
+                    + "</iq>";
+            case "iq-roster-get":
+                return "<iq type='get' id='roster1'>\n"
+                    + "    <query xmlns='jabber:iq:roster'/>\n"
+                    + "</iq>";
+            case "iq-disco-info":
+                return "<iq to='" + xmppDomain + "' type='get' id='disco1'>\n"
+                    + "    <query xmlns='http://jabber.org/protocol/disco#info'/>\n"
+                    + "</iq>";
+            default:
+                return null;
+        }
     }
 
     /**

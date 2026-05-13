@@ -36,6 +36,26 @@
         </tr>
         <tr valign="top">
             <td width="1%" nowrap>
+                <label for="template">
+                    Template
+                </label>
+            </td>
+            <td width="99%">
+                <select id="template" name="template" style="width: 100%;">
+                    <option value="">Select a frequently-used stanza template...</option>
+                    <option value="presence-available">Presence: available</option>
+                    <option value="message-chat">Message: chat</option>
+                    <option value="iq-ping">IQ: ping request (XEP-0199)</option>
+                    <option value="iq-roster-get">IQ: roster get</option>
+                    <option value="iq-disco-info">IQ: service discovery info</option>
+                </select>
+                <div style="margin-top: 0.4rem;">
+                    <input type="submit" name="insertTemplate" value="Insert template">
+                </div>
+            </td>
+        </tr>
+        <tr valign="top">
+            <td width="1%" nowrap>
                 <label for="stanza">
                     Stanza to Send
                 </label>
